@@ -1,0 +1,131 @@
+/ linalg.q — Linear Algebra Utilities for qstats
+/ qstats: Statistical Testing & Diagnostics for Q/kdb+
+/ License: MIT
+/ Namespace: .la
+
+/ @desc Extract diagonal of a matrix
+/ @param mat:float[][] — input matrix
+/ @return float[] — diagonal elements
+.la.diag:{[mat]
+  n:count mat;
+  result:n#0f;
+  i:0;
+  while[i<n;
+    result[i]:mat[i;i];
+    i+:1;
+  ];
+  result
+ };
+
+/ @desc Create diagonal matrix from vector
+/ @param vec:float[] — diagonal elements
+/ @return float[][] — diagonal matrix
+.la.diag_matrix:{[vec]
+  n:count vec;
+  mat:n#enlist n#0f;
+  i:0;
+  while[i<n;
+    mat[i;i]:vec i;
+    i+:1;
+  ];
+  mat
+ };
+
+/ @desc Trace of a matrix (sum of diagonal)
+/ @param mat:float[][] — input matrix
+/ @return float — trace
+.la.trace:{[mat]
+  sum .la.diag mat
+ };
+
+/ @desc Determinant of a matrix
+/ @param mat:float[][] — input matrix
+/ @return float — determinant
+.la.det:{[mat]
+  / Use prd over diagonal of upper triangular matrix from QR or LU decomposition
+  / For simplicity, use inv and recover det from product formula
+  / det(A) = 1/det(inv(A))
+  / But this is numerically unstable. Better approach: use eigenvalues
+  / For small matrices, use cofactor expansion
+  n:count mat;
+  /
+  / Base cases
+  if[n=1;:first first mat];
+  if[n=2;:(mat[0;0]*mat[1;1]) - mat[0;1]*mat[1;0]];
+  /
+  / For larger matrices, use LU-like approach via inv
+  / Since q doesn't have built-in LU, use formula: det(A) * det(inv(A)) = 1
+  / So det(A) = 1 / det(inv(A))
+  / But this is circular. Instead, use eigenvalue product or numerical method.
+  /
+  / Simple approach: use inv to get inverse, then compute det via trace of log
+  / Actually, we can use the identity: det(A) = prd(eigenvalues)
+  / But q doesn't have eig. Let's use a numerical trick:
+  / det(A) can be approximated by prd diag of upper triangular from QR
+  /
+  / For now, use recursive cofactor expansion (slow but correct)
+  d:0f;
+  j:0;
+  while[j<n;
+    / Cofactor expansion along first row
+    / det(A) = sum_j (-1)^j * A[0,j] * det(minor(A,0,j))
+    idx:(til n) where not (til n)=j;
+    minor:(1_mat)[;idx];
+    cofactor:mat[0;j] * .la.det minor;
+    d+:$[0=j mod 2;cofactor;neg cofactor];
+    j+:1;
+  ];
+  d
+ };
+
+/ @desc Solve linear system Ax = b
+/ @param aa:float[][] — coefficient matrix A
+/ @param bb:float[] — right-hand side vector b
+/ @return float[] — solution vector x
+.la.solve:{[aa;bb]
+  / Use built-in inv: x = inv(A) mmu b
+  (inv aa) mmu bb
+ };
+
+/ @desc Condition number of a matrix
+/ @param mat:float[][] — input matrix
+/ @return float — condition number (ratio of max/min singular values)
+.la.cond:{[mat]
+  / Condition number = ||A|| * ||inv(A)||
+  / Use Frobenius norm: sqrt(sum(A^2))
+  norm_a:sqrt sum raze mat*mat;
+  inv_mat:inv mat;
+  norm_inv:sqrt sum raze inv_mat*inv_mat;
+  norm_a*norm_inv
+ };
+
+/ @desc Cross-product X'X (efficiently)
+/ @param xx:float[][] — input matrix X
+/ @return float[][] — X'X
+.la.crossprod:{[xx]
+  (flip xx) mmu xx
+ };
+
+/ @desc Outer product of two vectors
+/ @param xx:float[] — first vector
+/ @param yy:float[] — second vector
+/ @return float[][] — outer product matrix x*y'
+.la.outer:{[xx;yy]
+  xx*\:yy
+ };
+
+/ @desc Identity matrix
+/ @param nn:long — matrix dimension
+/ @return float[][] — n×n identity matrix
+.la.eye:{[nn]
+  .la.diag_matrix nn#1f
+ };
+
+/ @desc Check if matrix is symmetric
+/ @param mat:float[][] — input matrix
+/ @param tol:float — tolerance for symmetry check
+/ @return boolean — 1b if symmetric, 0b otherwise
+.la.is_symmetric:{[mat;tol]
+  diff:mat - flip mat;
+  all raze (abs diff)<=tol
+ };

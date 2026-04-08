@@ -40,9 +40,9 @@
 ref_exists:0<count key `:tests/reference/special.json;
 if[not ref_exists; -1 "WARNING: Reference files not found. Run: cd tests/reference && python gen_all.py"; -1 "Skipping tie-out tests.\n"];
 
-/ Load tie-out tests
-if[ref_exists; \l tests/tieout/test_special.q];
-if[ref_exists; \l tests/tieout/test_distributions.q];
+/ Load tie-out tests (system commands must be at top level, not in if)
+\l tests/tieout/test_special.q
+\l tests/tieout/test_distributions.q
 \l tests/unit/test_linalg.q
 
 / Summary
