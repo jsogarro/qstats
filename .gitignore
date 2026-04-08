@@ -1,0 +1,30 @@
+# kdb+ artifacts
+*.q~
+*.k~
+*.qdb
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Pelican
+docs-site/output/
+docs-site/*.pid
+
+# AI artifacts (never commit)
+ai/
+
+# Logs
+*.log
