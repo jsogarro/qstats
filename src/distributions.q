@@ -185,7 +185,7 @@
 .dist.dt:{[xx;df]
   / Compute log-gamma ratio in log domain to avoid precision loss
   log_gamma_ratio:(.special.lgamma (df+1f)%2f) - .special.lgamma df%2f;
-  coef:(exp log_gamma_ratio)%(sqrt df*acos -1f);
+  coef:(exp log_gamma_ratio)%(sqrt df*.special.PI);
   coef*xexp[1f+(xx*xx)%df;(neg df+1f)%2f]
  };
 
