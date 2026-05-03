@@ -80,9 +80,74 @@ def gen_distributions():
         }
     }
 
+    # Chi-squared distribution
+    x_chisq = [0.0, 0.5, 1.0, 2.0, 3.84, 5.0, 10.0, 20.0]
+    p_chisq = [0.01, 0.025, 0.05, 0.1, 0.5, 0.9, 0.95, 0.975, 0.99]
+    df_chisq = [1.0, 2.0, 5.0, 10.0, 20.0]
+
+    data["chisq"] = {}
+    for df in df_chisq:
+        data["chisq"][f"df_{int(df)}"] = {
+            "df": df,
+            "dchisq": {"x": x_chisq, "y": [float(st.chi2.pdf(x, df)) for x in x_chisq]},
+            "pchisq": {"x": x_chisq, "y": [float(st.chi2.cdf(x, df)) for x in x_chisq]},
+            "qchisq": {"p": p_chisq, "y": [float(st.chi2.ppf(p, df)) for p in p_chisq]}
+        }
+
+    # Student's t distribution
+    x_t = [-4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0]
+    p_t = [0.01, 0.025, 0.05, 0.1, 0.5, 0.9, 0.95, 0.975, 0.99]
+    df_t = [1.0, 2.0, 5.0, 10.0, 30.0]
+
+    data["t"] = {}
+    for df in df_t:
+        data["t"][f"df_{int(df)}"] = {
+            "df": df,
+            "dt": {"x": x_t, "y": [float(st.t.pdf(x, df)) for x in x_t]},
+            "pt": {"x": x_t, "y": [float(st.t.cdf(x, df)) for x in x_t]},
+            "qt": {"p": p_t, "y": [float(st.t.ppf(p, df)) for p in p_t]}
+        }
+
+    # F distribution
+    x_f = [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 10.0]
+    p_f = [0.01, 0.05, 0.1, 0.5, 0.9, 0.95, 0.99]
+    df_pairs = [(1, 1), (5, 2), (5, 10), (10, 10), (20, 20)]
+
+    data["f"] = {}
+    for df1, df2 in df_pairs:
+        data["f"][f"df_{df1}_{df2}"] = {
+            "df1": df1, "df2": df2,
+            "df": {"x": x_f, "y": [float(st.f.pdf(x, df1, df2)) for x in x_f]},
+            "pf": {"x": x_f, "y": [float(st.f.cdf(x, df1, df2)) for x in x_f]},
+            "qf": {"p": p_f, "y": [float(st.f.ppf(p, df1, df2)) for p in p_f]}
+        }
+
+    # Uniform distribution
+    x_unif = [-1.0, 0.0, 0.25, 0.5, 0.75, 1.0, 2.0]
+    p_unif = [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0]
+
+    data["uniform"] = {
+        "dunif_01": {
+            "x": x_unif, "a": 0.0, "b": 1.0,
+            "y": [float(st.uniform.pdf(x, 0, 1)) for x in x_unif]
+        },
+        "punif_01": {
+            "x": x_unif, "a": 0.0, "b": 1.0,
+            "y": [float(st.uniform.cdf(x, 0, 1)) for x in x_unif]
+        },
+        "qunif_01": {
+            "p": p_unif, "a": 0.0, "b": 1.0,
+            "y": [float(st.uniform.ppf(p, 0, 1)) for p in p_unif]
+        },
+        "dunif_custom": {
+            "x": [0.0, 5.0, 7.5, 10.0, 15.0], "a": 5.0, "b": 10.0,
+            "y": [float(st.uniform.pdf(x, 5, 5)) for x in [0.0, 5.0, 7.5, 10.0, 15.0]]  # scale=5 means b-a
+        }
+    }
+
     with open("distributions.json", "w") as f:
         json.dump(data, f, indent=2)
-    print(f"  distributions.json: normal (dnorm/pnorm/qnorm)")
+    print(f"  distributions.json: normal, chisq, t, F, uniform")
 
 
 def gen_linalg():
