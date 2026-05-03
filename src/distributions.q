@@ -300,8 +300,8 @@
 
 / @desc Uniform probability density function
 / @param xx:float — input value(s)
-/ @param a:float — lower bound (default 0)
-/ @param b:float — upper bound (default 1)
+/ @param a:float — lower bound
+/ @param b:float — upper bound
 / @return float — PDF value(s)
 .dist.dunif:{[xx;a;b]
   ?[(xx>=a)&xx<=b;1f%(b-a);0f]
@@ -309,8 +309,8 @@
 
 / @desc Uniform cumulative distribution function
 / @param xx:float — input value(s)
-/ @param a:float — lower bound (default 0)
-/ @param b:float — upper bound (default 1)
+/ @param a:float — lower bound
+/ @param b:float — upper bound
 / @return float — CDF value(s)
 .dist.punif:{[xx;a;b]
   ?[xx<a;0f;?[xx>b;1f;(xx-a)%(b-a)]]
@@ -318,8 +318,8 @@
 
 / @desc Uniform quantile function
 / @param pp:float — probability (0 <= p <= 1)
-/ @param a:float — lower bound (default 0)
-/ @param b:float — upper bound (default 1)
+/ @param a:float — lower bound
+/ @param b:float — upper bound
 / @return float — quantile value(s)
 .dist.qunif:{[pp;a;b]
   a+pp*(b-a)
@@ -327,8 +327,8 @@
 
 / @desc Uniform random variates
 / @param nn:long — number of samples
-/ @param a:float — lower bound (default 0)
-/ @param b:float — upper bound (default 1)
+/ @param a:float — lower bound
+/ @param b:float — upper bound
 / @return float[] — random samples
 .dist.runif:{[nn;a;b]
   a+(b-a)*nn?1f
