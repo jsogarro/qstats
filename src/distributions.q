@@ -243,7 +243,13 @@
   a:df1%2f;
   b:df2%2f;
   lnbeta:(.special.lgamma a)+(.special.lgamma b)-.special.lgamma a+b;
-  lnf:((a*log df1)+(b*log df2)+(a*log xx))-(((a+b)*log[df1*xx+df2])+log[xx]+lnbeta);
+  / F PDF log form: a*log(d1) + b*log(d2) + (a-1)*log(x) - (a+b)*log(d1*x+d2) - log(Beta(a,b))
+  t1:a*log df1;
+  t2:b*log df2;
+  t3:(a-1f)*log xx;
+  t4:(a+b)*log (df1*xx)+df2;
+  t5:lnbeta;
+  lnf:((t1+t2)+t3)-(t4+t5);
   exp lnf
  };
 
@@ -254,9 +260,9 @@
 / @return float — CDF value(s)
 .dist.pf:{[xx;df1;df2]
   z:(df1*xx)%(df1*xx)+df2;
-  aa:df1%2f;
-  bb:df2%2f;
-  {.special.betainc[x;aa;bb]} each z
+  a:df1%2f;
+  b:df2%2f;
+  .special.betainc[;a;b] each z
  };
 
 / @desc F-distribution quantile function via Newton-Raphson
