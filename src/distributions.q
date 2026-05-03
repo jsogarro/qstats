@@ -181,7 +181,10 @@
      i:0; maxiter:100; tol:1e-10;
      while[(i<maxiter) and tol<abs fx:.dist.pchisq[x;df]-p;
        dpdf:.dist.dchisq[x;df];
-       / Guard against zero/tiny derivative
+       / Guard against division by near-zero derivative to prevent overflow.
+       / Chi-squared PDF → 0 as x → 0 for df>2, and → ∞ as x → ∞.
+       / Threshold 1e-200 chosen to stay safely above IEEE 754 subnormals
+       / while allowing convergence for extreme quantiles (p near 0 or 1).
        x:$[dpdf>1e-200; x-(fx%dpdf); x*0.5];
        i+:1];
      x]
