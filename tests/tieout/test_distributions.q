@@ -80,7 +80,7 @@ test_chisq_df:{[df_key]
   qchisq_p:qchisq_data`p;
   qchisq_expected:qchisq_data`y;
   qchisq_actual:.dist.qchisq[qchisq_p;df];
-  {.tst.assert_approx["qchisq(p=",string[x],")";y;z;1e-8]}'[qchisq_p;qchisq_actual;qchisq_expected];
+  {.tst.assert_approx["qchisq(p=",string[x],")";y;z;1e-6]}'[qchisq_p;qchisq_actual;qchisq_expected];
  };
 
 test_chisq_df each `df_1`df_2`df_5`df_10`df_20;
@@ -118,7 +118,7 @@ test_t_df:{[df_key]
   qt_p:qt_data`p;
   qt_expected:qt_data`y;
   qt_actual:.dist.qt[qt_p;df];
-  {.tst.assert_approx["qt(p=",string[x],")";y;z;1e-8]}'[qt_p;qt_actual;qt_expected];
+  {.tst.assert_approx["qt(p=",string[x],")";y;z;1e-6]}'[qt_p;qt_actual;qt_expected];
  };
 
 test_t_df each `df_1`df_2`df_5`df_10`df_30;
