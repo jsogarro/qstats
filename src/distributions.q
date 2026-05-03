@@ -198,9 +198,9 @@
 / @return float — CDF value(s)
 .dist.pt:{[xx;df]
   z:df%(df+xx*xx);
-  aa:df%2f;
-  bb:0.5;
-  betacdf:0.5*{.special.betainc[x;aa;bb]} each z;
+  a:df%2f;
+  b:0.5;
+  betacdf:0.5*.special.betainc[;a;b] each z;
   ?[xx<0;betacdf;1f-betacdf]
  };
 
