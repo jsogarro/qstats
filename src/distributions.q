@@ -168,10 +168,10 @@
 / @param df:float — degrees of freedom (> 0)
 / @return float[] — random samples
 .dist.rchisq:{[nn;df]
-  / Generate df × nn standard normals, square and sum across df
+  / Generate df × nn standard normals, square and sum across each sample
   z:.dist.rnorm[df*nn;0f;1f];
   z2:z*z;
-  sum each (df;nn)#z2
+  sum each (nn;df)#z2
  };
 
 /=============================================================================
@@ -183,12 +183,9 @@
 / @param df:float — degrees of freedom (> 0)
 / @return float — PDF value(s)
 .dist.dt:{[xx;df]
-  / Use log-gamma to avoid overflow
-  lg1:exp .special.lgamma (df+1f)%2f;
-  lg2:exp .special.lgamma df%2f;
-  numer:lg1;
-  denom:(sqrt df*acos -1f)*lg2;
-  coef:numer%denom;
+  / Compute log-gamma ratio in log domain to avoid precision loss
+  log_gamma_ratio:(.special.lgamma (df+1f)%2f) - .special.lgamma df%2f;
+  coef:(exp log_gamma_ratio)%(sqrt df*acos -1f);
   coef*xexp[1f+(xx*xx)%df;(neg df+1f)%2f]
  };
 
