@@ -3,12 +3,24 @@
 / License: MIT
 / Namespace: .dist
 
+/=============================================================================
+/ INPUT VALIDATION
+/=============================================================================
+
+/ @desc Validate distribution parameters and raise signal on violation
+/ @param check:boolean — condition that must be true
+/ @param msg:string — error message if check fails
+.dist.validate:{[check;msg]
+  if[not check; '"invalid_arg: ",msg];
+ };
+
 / @desc Normal probability density function
 / @param xx:float — input value(s)
 / @param mu:float — mean
-/ @param sigma:float — standard deviation
+/ @param sigma:float — standard deviation (> 0)
 / @return float — PDF value(s)
 .dist.dnorm:{[xx;mu;sigma]
+  .dist.validate[sigma>0f;"sigma must be positive"];
   z:(xx-mu)%sigma;
   coef:1f%(sigma*sqrt 2*.special.PI);
   coef*exp neg 0.5*z*z
@@ -17,9 +29,10 @@
 / @desc Normal cumulative distribution function via Abramowitz & Stegun
 / @param xx:float — input value(s)
 / @param mu:float — mean
-/ @param sigma:float — standard deviation
+/ @param sigma:float — standard deviation (> 0)
 / @return float — CDF value(s)
 .dist.pnorm:{[xx;mu;sigma]
+  .dist.validate[sigma>0f;"sigma must be positive"];
   / @desc Normal CDF via Abramowitz & Stegun rational approximation
   / @param x - value (scalar or vector), mu - mean, sigma - std dev
   / @return cumulative probability
@@ -34,9 +47,11 @@
 / @desc Normal quantile function via Acklam's algorithm (scalar)
 / @param p:float — probability (0 < p < 1)
 / @param mu:float — mean
-/ @param sigma:float — standard deviation
+/ @param sigma:float — standard deviation (> 0)
 / @return float — quantile value
 .dist.qnorm_scalar:{[p;mu;sigma]
+  .dist.validate[(p>0f)&p<1f;"p must be in (0,1)"];
+  .dist.validate[sigma>0f;"sigma must be positive"];
   / Acklam coefficients
   a1:-3.969683028665376e+01;
   a2:2.209460984245205e+02;
@@ -95,11 +110,14 @@
  };
 
 / @desc Normal random variates via Box-Muller transform
-/ @param nn:long — number of samples
+/ @param nn:long — number of samples (>= 0)
 / @param mu:float — mean
-/ @param sigma:float — standard deviation
+/ @param sigma:float — standard deviation (> 0)
 / @return float[] — random samples
 .dist.rnorm:{[nn;mu;sigma]
+  .dist.validate[nn>=0;"n must be non-negative"];
+  .dist.validate[(-7h=type nn)|(-6h=type nn);"n must be integer type"];
+  .dist.validate[sigma>0f;"sigma must be positive"];
   / Generate ceil(nn/2) pairs, use both variates to halve trig cost
   npairs:ceiling[nn%2];
   u1:npairs?1f;
@@ -121,6 +139,7 @@
 / @param df:float — degrees of freedom (> 0)
 / @return float — PDF value(s)
 .dist.dchisq:{[xx;df]
+  .dist.validate[df>0f;"df must be positive"];
   a:df%2f;
   / Compute log PDF for positive x
   t1:(a-1f)*log xx;
@@ -138,6 +157,7 @@
 / @param df:float — degrees of freedom (> 0)
 / @return float — CDF value(s)
 .dist.pchisq:{[xx;df]
+  .dist.validate[df>0f;"df must be positive"];
   a:df%2f;
   .special.gammainc[a;] each xx%2f
  };
@@ -147,6 +167,8 @@
 / @param df:float — degrees of freedom (> 0)
 / @return float — quantile value(s)
 .dist.qchisq_scalar:{[p;df]
+  .dist.validate[(p>0f)&p<1f;"p must be in (0,1)"];
+  .dist.validate[df>0f;"df must be positive"];
   / Special case: df=1 has exact formula
   $[df<1.5;
     [z1:.dist.qnorm_scalar[(1f+p)%2f;0f;1f]; z1*z1];
@@ -168,10 +190,13 @@
 .dist.qchisq:{[pp;df] .dist.qchisq_scalar[;df] each pp};
 
 / @desc Chi-squared random variates via sum of squared normals
-/ @param nn:long — number of samples
+/ @param nn:long — number of samples (>= 0)
 / @param df:float — degrees of freedom (> 0)
 / @return float[] — random samples
 .dist.rchisq:{[nn;df]
+  .dist.validate[nn>=0;"n must be non-negative"];
+  .dist.validate[(-7h=type nn)|(-6h=type nn);"n must be integer type"];
+  .dist.validate[df>0f;"df must be positive"];
   / Generate df × nn standard normals, square and sum across each sample
   z:.dist.rnorm[df*nn;0f;1f];
   z2:z*z;
@@ -187,6 +212,7 @@
 / @param df:float — degrees of freedom (> 0)
 / @return float — PDF value(s)
 .dist.dt:{[xx;df]
+  .dist.validate[df>0f;"df must be positive"];
   / Compute log-gamma ratio in log domain to avoid precision loss
   log_gamma_ratio:(.special.lgamma (df+1f)%2f) - .special.lgamma df%2f;
   coef:(exp log_gamma_ratio)%(sqrt df*.special.PI);
@@ -198,6 +224,7 @@
 / @param df:float — degrees of freedom (> 0)
 / @return float — CDF value(s)
 .dist.pt:{[xx;df]
+  .dist.validate[df>0f;"df must be positive"];
   z:df%(df+xx*xx);
   a:df%2f;
   b:0.5;
@@ -210,6 +237,8 @@
 / @param df:float — degrees of freedom (> 0)
 / @return float — quantile value(s)
 .dist.qt_scalar:{[p;df]
+  .dist.validate[(p>0f)&p<1f;"p must be in (0,1)"];
+  .dist.validate[df>0f;"df must be positive"];
   / Initial guess: use normal quantile
   x:.dist.qnorm_scalar[p;0f;1f];
   / Newton-Raphson iterations
@@ -222,10 +251,13 @@
 .dist.qt:{[pp;df] .dist.qt_scalar[;df] each pp};
 
 / @desc Student's t random variates via ratio method
-/ @param nn:long — number of samples
+/ @param nn:long — number of samples (>= 0)
 / @param df:float — degrees of freedom (> 0)
 / @return float[] — random samples
 .dist.rt:{[nn;df]
+  .dist.validate[nn>=0;"n must be non-negative"];
+  .dist.validate[(-7h=type nn)|(-6h=type nn);"n must be integer type"];
+  .dist.validate[df>0f;"df must be positive"];
   z:.dist.rnorm[nn;0f;1f];       / Standard normal
   v:.dist.rchisq[nn;df];         / Chi-squared
   z%sqrt v%df
@@ -241,6 +273,8 @@
 / @param df2:float — denominator degrees of freedom (> 0)
 / @return float — PDF value(s)
 .dist.df:{[xx;df1;df2]
+  .dist.validate[df1>0f;"df1 must be positive"];
+  .dist.validate[df2>0f;"df2 must be positive"];
   a:df1%2f;
   b:df2%2f;
   lnbeta:(.special.lgamma a)+(.special.lgamma b)-.special.lgamma a+b;
@@ -260,6 +294,8 @@
 / @param df2:float — denominator degrees of freedom (> 0)
 / @return float — CDF value(s)
 .dist.pf:{[xx;df1;df2]
+  .dist.validate[df1>0f;"df1 must be positive"];
+  .dist.validate[df2>0f;"df2 must be positive"];
   z:(df1*xx)%(df1*xx)+df2;
   a:df1%2f;
   b:df2%2f;
@@ -272,6 +308,9 @@
 / @param df2:float — denominator degrees of freedom (> 0)
 / @return float — quantile value(s)
 .dist.qf_scalar:{[p;df1;df2]
+  .dist.validate[(p>0f)&p<1f;"p must be in (0,1)"];
+  .dist.validate[df1>0f;"df1 must be positive"];
+  .dist.validate[df2>0f;"df2 must be positive"];
   / Initial guess: ratio of chi-squared quantiles
   x:(.dist.qchisq_scalar[p;df1]%df1)%.dist.qchisq_scalar[1f-p;df2]%df2;
   / Newton-Raphson iterations
@@ -284,11 +323,15 @@
 .dist.qf:{[pp;df1;df2] .dist.qf_scalar[;df1;df2] each pp};
 
 / @desc F-distribution random variates via ratio of chi-squareds
-/ @param nn:long — number of samples
+/ @param nn:long — number of samples (>= 0)
 / @param df1:float — numerator degrees of freedom (> 0)
 / @param df2:float — denominator degrees of freedom (> 0)
 / @return float[] — random samples
 .dist.rf:{[nn;df1;df2]
+  .dist.validate[nn>=0;"n must be non-negative"];
+  .dist.validate[(-7h=type nn)|(-6h=type nn);"n must be integer type"];
+  .dist.validate[df1>0f;"df1 must be positive"];
+  .dist.validate[df2>0f;"df2 must be positive"];
   v1:.dist.rchisq[nn;df1];
   v2:.dist.rchisq[nn;df2];
   (v1%df1)%(v2%df2)
@@ -301,35 +344,42 @@
 / @desc Uniform probability density function
 / @param xx:float — input value(s)
 / @param a:float — lower bound
-/ @param b:float — upper bound
+/ @param b:float — upper bound (> a)
 / @return float — PDF value(s)
 .dist.dunif:{[xx;a;b]
+  .dist.validate[b>a;"b must be greater than a"];
   ?[(xx>=a)&xx<=b;1f%(b-a);0f]
  };
 
 / @desc Uniform cumulative distribution function
 / @param xx:float — input value(s)
 / @param a:float — lower bound
-/ @param b:float — upper bound
+/ @param b:float — upper bound (> a)
 / @return float — CDF value(s)
 .dist.punif:{[xx;a;b]
+  .dist.validate[b>a;"b must be greater than a"];
   ?[xx<a;0f;?[xx>b;1f;(xx-a)%(b-a)]]
  };
 
 / @desc Uniform quantile function
 / @param pp:float — probability (0 <= p <= 1)
 / @param a:float — lower bound
-/ @param b:float — upper bound
+/ @param b:float — upper bound (> a)
 / @return float — quantile value(s)
 .dist.qunif:{[pp;a;b]
+  .dist.validate[all (pp>=0f)&pp<=1f;"p must be in [0,1]"];
+  .dist.validate[b>a;"b must be greater than a"];
   a+pp*(b-a)
  };
 
 / @desc Uniform random variates
-/ @param nn:long — number of samples
+/ @param nn:long — number of samples (>= 0)
 / @param a:float — lower bound
-/ @param b:float — upper bound
+/ @param b:float — upper bound (> a)
 / @return float[] — random samples
 .dist.runif:{[nn;a;b]
+  .dist.validate[nn>=0;"n must be non-negative"];
+  .dist.validate[(-7h=type nn)|(-6h=type nn);"n must be integer type"];
+  .dist.validate[b>a;"b must be greater than a"];
   a+(b-a)*nn?1f
  };
