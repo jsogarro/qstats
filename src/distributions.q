@@ -243,10 +243,10 @@
   / F PDF log form: a*log(d1) + b*log(d2) + (a-1)*log(x) - (a+b)*log(d1*x+d2) - log(Beta(a,b))
   t1:a*log df1;
   t2:b*log df2;
-  t3:(a-1f)*log xx;
+  / Handle x^(a-1) term: when a=1 and x=0, lim x→0+ x^0 = 1, so log term = 0
+  t3:?[(a=1f) & xx=0f; 0f; (a-1f)*log xx];
   t4:(a+b)*log (df1*xx)+df2;
-  t5:lnbeta;
-  lnf:((t1+t2)+t3)-(t4+t5);
+  lnf:((t1+t2)+t3)-(t4+lnbeta);
   exp lnf
  };
 
