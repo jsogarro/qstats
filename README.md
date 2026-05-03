@@ -49,7 +49,7 @@ q tests/run_all.q
 | Namespace | Module | Description |
 |-----------|--------|-------------|
 | `.special` | `src/special.q` | Log-gamma, incomplete beta/gamma |
-| `.dist` | `src/distributions.q` | Normal, t, F, chi-sq distributions |
+| `.dist` | `src/distributions.q` | Normal, chi-sq, t, F, uniform distributions (PDF/CDF/quantile/random) |
 | `.la` | `src/linalg.q` | Matrix diagonal, trace, det, solve |
 | `.desc` | `src/descriptive.q` | Mean, median, sd, skewness, kurtosis, correlation |
 | `.htest` | `src/tests.q` | t-tests, chi-squared, KS, ANOVA |
@@ -58,7 +58,7 @@ q tests/run_all.q
 ## Roadmap
 
 - [x] Wave 1: Foundations (special functions, normal distribution, linear algebra)
-- [ ] Wave 2: Core distributions (t, F, chi-squared)
+- [x] Wave 2: Core distributions (chi-squared, t, F, uniform)
 - [ ] Wave 3: Descriptive statistics
 - [ ] Wave 4: Parametric hypothesis tests
 - [ ] Wave 5: Nonparametric tests
