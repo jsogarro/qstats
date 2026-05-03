@@ -100,11 +100,15 @@
 / @param sigma:float — standard deviation
 / @return float[] — random samples
 .dist.rnorm:{[nn;mu;sigma]
-  u1:nn?1f;
-  u2:nn?1f;
+  / Generate ceil(nn/2) pairs, use both variates to halve trig cost
+  npairs:ceiling[nn%2];
+  u1:npairs?1f;
+  u2:npairs?1f;
   r:sqrt neg 2f*log u1;
   theta:2f*.special.PI*u2;
-  zz:r*cos theta;
+  z1:r*cos theta;
+  z2:r*sin theta;
+  zz:nn#(z1,z2);  / Interleave and truncate to nn
   mu+sigma*zz
  };
 
