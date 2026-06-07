@@ -686,6 +686,39 @@ def gen_diagnostics():
 
     data["durbin_watson"] = float(durbin_watson(model.resid))
 
+    # Durbin-Watson p-value via Pan's beta approximation (eigenvalue-based)
+    # statsmodels doesn't compute this, so implement it here
+    def durbin_watson_pvalue(dw_stat, X, n, p):
+        # Construct A (differencing matrix)
+        A = np.zeros((n, n))
+        for i in range(1, n):
+            A[i, i] = 1
+            A[i, i-1] = -1
+        # Compute M = I - H
+        H = X @ np.linalg.inv(X.T @ X) @ X.T
+        M = np.eye(n) - H
+        # Eigenvalues of M @ A @ M
+        MAM = M @ A @ M
+        eigvals = np.linalg.eigvalsh(MAM)  # symmetric, so eigvalsh
+        # Mean and variance
+        mu = eigvals.sum() / (n - p)
+        var = 2 * (np.sum(eigvals**2) - eigvals.sum()**2 / (n - p)) / (n - p)**2
+        # Guard against zero variance
+        if var < 1e-12:
+            var = 1e-12
+        # Beta parameters
+        a = mu * (mu * (4 - mu) / var - 1) / 2
+        b = (4 - mu) * a / mu if mu > 1e-12 else a
+        # p-value
+        x = dw_stat / 4.0
+        from scipy.stats import beta
+        pval = beta.cdf(x, a, b)
+        return float(pval)
+
+    data["durbin_watson_pvalue"] = durbin_watson_pvalue(
+        data["durbin_watson"], X, n, X.shape[1]
+    )
+
     bp = het_breuschpagan(model.resid, X)
     # statsmodels het_breuschpagan returns (lm_stat, lm_pvalue, fvalue, f_pvalue)
     data["breusch_pagan"] = {"statistic": float(bp[0]), "df": X.shape[1] - 1,

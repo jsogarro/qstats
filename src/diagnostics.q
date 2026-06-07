@@ -140,17 +140,54 @@
 / 3. Autocorrelation
 /=============================================================================
 
-/ Durbin-Watson statistic for first-order autocorrelation in residuals.
-/ DW in [0, 4]; DW=2 means no autocorrelation. p-value is not computed
-/ (requires Durbin-Watson tables / Imhof distribution).
+/ Durbin-Watson test for first-order autocorrelation in residuals.
+/ DW in [0, 4]; DW=2 means no autocorrelation.
+/ p-value computed via Pan's beta approximation using eigenvalues of M*A*M.
 .diag.durbin_watson:{[model]
-  e:model`residuals;
-  numer:sum (1_e)-(-1_e) xexp 2;
-  / Right-assoc trap: (1_e)-(-1_e) parses fine since both are parenthesized
-  / lists. xexp 2 squares the resulting differences.
-  numer:sum ((1_e)-(-1_e)) xexp 2;
-  denom:sum e*e;
-  numer%denom
+  X:model`X;
+  ee:model`residuals;
+  nn:model`n;
+  pp:model`p;
+  / DW statistic
+  numer:sum ((1_ee)-(-1_ee)) xexp 2;
+  denom:sum ee*ee;
+  dw:numer%denom;
+  / p-value via Pan's beta approximation
+  / 1. Construct A (n x n differencing matrix)
+  A_mat:(nn;nn)#(nn*nn)?0f;
+  ii:1; while[ii<nn; A_mat[ii;ii]:1f; A_mat[ii;(ii)-1]:neg 1f; ii+:1];
+  / 2. Compute M = I - H (hat matrix)
+  / H = X @ (X'X)^-1 @ X'
+  XtX_inv:model`XtX_inv;
+  / Cast inv result to float matrix (inv returns type 0h)
+  H_mat:"f"$(X mmu XtX_inv) mmu flip X;
+  I_mat:(nn;nn)#(nn*nn)?0f; ii:0; while[ii<nn; I_mat[ii;ii]:1f; ii+:1];
+  M_mat:(I_mat)-H_mat;
+  / 3. Compute M*A*M
+  MA:M_mat mmu A_mat;
+  MAM:MA mmu M_mat;
+  / 4. Eigenvalues of MAM
+  eigvals:.la.eigen_jacobi MAM;
+  / 5. Mean and variance of DW
+  mu_dw:(sum eigvals)%(nn)-pp;
+  lam_sq_sum:sum eigvals*eigvals;
+  lam_sum_sq:(sum eigvals) xexp 2;
+  var_dw_num:2f*((lam_sq_sum)-(lam_sum_sq%(nn)-pp));
+  var_dw:var_dw_num%xexp[(nn)-pp;2];
+  / 6. Beta approximation (map DW in [0,4] to beta in [0,1])
+  / a = mu*(mu*(4-mu)/var - 1)/2
+  / b = (4-mu)*a/mu
+  / Guard against division by zero if var_dw ~ 0
+  if[var_dw<1e-12; var_dw:1e-12];
+  a_inner:(mu_dw*(4f-mu_dw))%var_dw;
+  a_full:mu_dw*(a_inner-1f);
+  a_param:a_full%2f;
+  b_param:$[mu_dw>1e-12; ((4f-mu_dw)*a_param)%mu_dw; a_param];  / Guard against mu=0
+  / Map DW to [0,1]: x = DW/4
+  x_beta:dw%4f;
+  / p-value = P(Beta(a,b) < x_beta)
+  pval:.dist.pbeta[x_beta;a_param;b_param];
+  `statistic`df`p_value`method`alternative`ci!(dw;0n;pval;"Durbin-Watson test for autocorrelation";"two.sided";(0n;0n))
  };
 
 /=============================================================================

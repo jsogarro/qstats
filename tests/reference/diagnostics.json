@@ -573,6 +573,7 @@
     ]
   ],
   "durbin_watson": 2.029119982030056,
+  "durbin_watson_pvalue": 0.9998449246367065,
   "breusch_pagan": {
     "statistic": 8.756254494701475,
     "df": 3,

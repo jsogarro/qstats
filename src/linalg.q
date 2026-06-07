@@ -153,3 +153,48 @@
   diff:mat - flip mat;
   all raze (abs diff)<=tol
  };
+
+/ @desc Eigenvalues of a symmetric matrix via Jacobi iteration
+/ @param A:float[][] — symmetric matrix (n x n)
+/ @return float[] — eigenvalues (unsorted)
+/ Uses the classical Jacobi algorithm: iteratively zero out off-diagonal elements
+/ via Givens rotations until convergence. Suitable for small-to-medium matrices.
+.la.eigen_jacobi:{[A]
+  nn:count A;
+  / Initialize V = I (eigenvectors, not needed for DW but Jacobi computes both)
+  V:(nn;nn)#(nn*nn)?0f; ii:0; while[ii<nn; V[ii;ii]:1f; ii+:1];
+  / Jacobi iteration: zero out off-diagonal elements
+  / Stopping criterion: max off-diagonal < tol
+  tol_conv:1e-12; maxiter:100; iter_ct:0;
+  while[iter_ct<maxiter;
+    / Find largest off-diagonal element
+    max_off:0f; pp:0; qq:1;
+    ii:0; while[ii<(nn)-1;
+      jj:(ii)+1; while[jj<nn;
+        if[max_off<abs A[ii;jj]; max_off:abs A[ii;jj]; pp:ii; qq:jj];
+        jj+:1];
+      ii+:1];
+    / If max off-diagonal is small, converged
+    if[max_off<tol_conv; iter_ct:maxiter];
+    / Compute rotation angle theta
+    if[max_off>=tol_conv;
+      theta_ang:$[1e-12>abs (A[pp;pp])-A[qq;qq];
+        .special.PI%4f;  / 45 degrees if diagonal elements equal
+        0.5*atan (2f*A[pp;qq])%(A[pp;pp])-A[qq;qq]];
+      cc:cos theta_ang; sn:sin theta_ang;
+      / Apply Givens rotation to A (A' = G^T A G)
+      / Update A[p,p], A[q,q], A[p,q], and all A[i,p], A[i,q]
+      app:A[pp;pp]; aqq:A[qq;qq]; apq:A[pp;qq];
+      A[pp;pp]:((cc*cc*app)+(sn*sn*aqq))-(2f*cc*sn*apq);
+      A[qq;qq]:((sn*sn*app)+(cc*cc*aqq))+(2f*cc*sn*apq);
+      A[pp;qq]:0f; A[qq;pp]:0f;
+      ii:0; while[ii<nn;
+        if[(ii<>pp) and ii<>qq;
+          aip:A[ii;pp]; aiq:A[ii;qq];
+          A[ii;pp]:(cc*aip)-(sn*aiq); A[pp;ii]:A[ii;pp];
+          A[ii;qq]:(sn*aip)+(cc*aiq); A[qq;ii]:A[ii;qq]];
+        ii+:1];
+      iter_ct+:1]];
+  / Extract eigenvalues from diagonal of A
+  {[A;x] A[x;x]}[A;] each til nn
+ };
