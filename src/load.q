@@ -8,9 +8,10 @@
 \l src/distributions.q
 \l src/descriptive.q
 \l src/tests.q
+\l src/diagnostics.q
 
 -1 "";
--1 "qstats loaded. Namespaces: .special .dist .la .desc .htest";
+-1 "qstats loaded. Namespaces: .special .dist .la .desc .htest .lm .diag";
 -1 "  Special functions:";
 -1 "    .special.lgamma[z]          — log-gamma function";
 -1 "    .special.betainc[x;a;b]     — regularized incomplete beta";
@@ -34,4 +35,9 @@
 -1 "  Nonparametric tests:";
 -1 "    .htest.{ks,mannwhitney,wilcoxon}";
 -1 "    .htest.{shapiro,jarque_bera}";
+-1 "  OLS + diagnostics:";
+-1 "    .lm.fit[X;y]                -- minimal OLS fit (model dict)";
+-1 "    .diag.{vif,cooks_distance,leverage,dfbetas,dffits}";
+-1 "    .diag.{durbin_watson,breusch_pagan,white_test,jarque_bera}";
+-1 "    .diag.{rsquared,aic,bic,residual_data}";
 -1 "";
