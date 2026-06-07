@@ -589,6 +589,29 @@ def gen_nonparam():
         {"x": sw_exp50, **shapiro_ref(sw_exp50)},
     ]
 
+    # Add small-sample Shapiro-Wilk cases (n in [4, 11]) for Wave 8 Gap B2
+    sw_small_samples = {
+        4: rng.standard_normal(4).tolist(),
+        5: rng.standard_normal(5).tolist(),
+        6: rng.standard_normal(6).tolist(),
+        7: rng.standard_normal(7).tolist(),
+        8: rng.standard_normal(8).tolist(),
+        9: rng.standard_normal(9).tolist(),
+        10: rng.standard_normal(10).tolist(),
+        11: rng.standard_normal(11).tolist(),
+    }
+    data["shapiro_small"] = [
+        {"n": n, "x": x, **shapiro_ref(x)}
+        for n, x in sw_small_samples.items()
+    ]
+    # Also add edge cases: uniform and exponential for small n
+    sw_unif8 = rng.uniform(-1, 1, 8).tolist()
+    sw_exp10 = rng.exponential(1.0, 10).tolist()
+    data["shapiro_small"].extend([
+        {"n": 8, "x": sw_unif8, **shapiro_ref(sw_unif8)},
+        {"n": 10, "x": sw_exp10, **shapiro_ref(sw_exp10)},
+    ])
+
     # ----- Jarque-Bera -----
     def jb_ref(x):
         res = st.jarque_bera(x)

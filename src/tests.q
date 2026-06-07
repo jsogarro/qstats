@@ -373,7 +373,21 @@
      yval:log 1f-W;
      z:(yval-mu_y)%sig_y;
      1f-.dist.pnorm[z;0f;1f]];
-    / n < 12 returns 0n; small-sample p-value form not implemented
+    / n in [4, 11]: Royston small-sample transform
+    n<12;
+    [gamma_tbl:(0f;0.09;0.1743;0.2578;0.3306;0.3844;0.4229;0.4595);
+     gam_val:gamma_tbl[n-4];
+     w_small:1f-W;
+     arg_raw:gam_val-(log w_small);
+     arg_raw:0f|arg_raw;
+     arg_clamp:arg_raw|1e-12;
+     y_s:neg log arg_clamp;
+     term1_mu:(neg 0.0006714)*n*n;
+     term2_mu:0.025054*n;
+     mu_s:(term1_mu+term2_mu)-0.39978;
+     sig_s:exp ((neg 0.0020322)*n)+0.062767;
+     z:(y_s-mu_s)%sig_s;
+     1f-.dist.pnorm[z;0f;1f]];
     0n];
   `statistic`df`p_value`method`alternative`ci!(W;0n;pval;"Shapiro-Wilk normality test";"two.sided";(0n;0n))
  };
