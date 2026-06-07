@@ -324,10 +324,179 @@ def gen_descriptive():
     print(f"  descriptive.json: {n_cases} test groups across {len(data)} functions")
 
 
+def gen_htest():
+    """Generate reference values for Wave 4 parametric hypothesis tests."""
+    rng = np.random.default_rng(42)
+    data = {}
+
+    # ----- t-tests -----
+    x1 = [1.0, 2.0, 3.0, 4.0, 5.0]
+    x2 = rng.standard_normal(30).tolist()
+    x_norm0 = rng.standard_normal(50).tolist()
+    x_norm2 = (np.array(rng.standard_normal(50)) + 2.0).tolist()
+    paired_x = [10.0, 12.0, 9.0, 11.0, 13.0, 14.0, 12.0, 11.0]
+    paired_y = [9.5, 11.5, 8.5, 10.5, 12.5, 13.0, 11.5, 10.5]
+
+    def ttest1_ref(x, mu0):
+        res = st.ttest_1samp(x, mu0)
+        return {"statistic": float(res.statistic), "p_value": float(res.pvalue),
+                "df": float(len(x) - 1)}
+
+    def ttest2_ref(x, y):
+        res = st.ttest_ind(x, y, equal_var=True)
+        return {"statistic": float(res.statistic), "p_value": float(res.pvalue),
+                "df": float(len(x) + len(y) - 2)}
+
+    def welch_ref(x, y):
+        res = st.ttest_ind(x, y, equal_var=False)
+        return {"statistic": float(res.statistic), "p_value": float(res.pvalue),
+                "df": float(res.df)}
+
+    def ttest_paired_ref(x, y):
+        res = st.ttest_rel(x, y)
+        return {"statistic": float(res.statistic), "p_value": float(res.pvalue),
+                "df": float(len(x) - 1)}
+
+    data["ttest1"] = [
+        {"x": x1, "mu0": 3.0, **ttest1_ref(x1, 3.0)},
+        {"x": x1, "mu0": 5.0, **ttest1_ref(x1, 5.0)},
+        {"x": x2, "mu0": 0.0, **ttest1_ref(x2, 0.0)},
+        {"x": x2, "mu0": 0.5, **ttest1_ref(x2, 0.5)},
+    ]
+    data["ttest2"] = [
+        {"x": x_norm0, "y": x_norm2, **ttest2_ref(x_norm0, x_norm2)},
+        {"x": x1, "y": [2.0, 3.0, 4.0, 5.0, 6.0], **ttest2_ref(x1, [2.0, 3.0, 4.0, 5.0, 6.0])},
+    ]
+    data["welch"] = [
+        {"x": x_norm0, "y": x_norm2, **welch_ref(x_norm0, x_norm2)},
+        {"x": x1, "y": [2.0, 3.0, 4.0, 5.0, 6.0], **welch_ref(x1, [2.0, 3.0, 4.0, 5.0, 6.0])},
+        {"x": x_norm0, "y": rng.standard_normal(80).tolist(),
+         "_meta": "different n"},
+    ]
+    # populate the placeholder
+    data["welch"][2].update(welch_ref(data["welch"][2]["x"], data["welch"][2]["y"]))
+    del data["welch"][2]["_meta"]
+
+    data["ttest_paired"] = [
+        {"x": paired_x, "y": paired_y, **ttest_paired_ref(paired_x, paired_y)},
+    ]
+
+    # ----- F-test for variance ratio -----
+    def ftest_ref(x, y):
+        vx = np.var(x, ddof=1)
+        vy = np.var(y, ddof=1)
+        F = vx / vy
+        df1, df2 = len(x) - 1, len(y) - 1
+        cdf = st.f.cdf(F, df1, df2)
+        pval = 2.0 * min(cdf, 1.0 - cdf)
+        return {"statistic": float(F), "df1": df1, "df2": df2, "p_value": float(pval)}
+
+    data["ftest"] = [
+        {"x": x_norm0, "y": x_norm2, **ftest_ref(x_norm0, x_norm2)},
+        {"x": x1, "y": [10.0, 11.0, 9.0, 12.0, 8.0], **ftest_ref(x1, [10.0, 11.0, 9.0, 12.0, 8.0])},
+    ]
+
+    # ----- Chi-squared -----
+    def gof_ref(obs, exp):
+        # scipy.stats.chisquare needs sum(obs) == sum(exp)
+        res = st.chisquare(obs, f_exp=exp)
+        return {"statistic": float(res.statistic), "df": len(obs) - 1,
+                "p_value": float(res.pvalue)}
+
+    def ind_ref(table):
+        chi2, p, dof, _ = st.chi2_contingency(table)
+        return {"statistic": float(chi2), "df": int(dof), "p_value": float(p)}
+
+    # scipy.chisquare insists sum(obs) == sum(exp) exactly, so choose totals
+    # that divide evenly into k categories.
+    obs1 = [10.0, 12.0, 11.0, 9.0, 13.0, 17.0]   # sum 72, k=6, expected=12 each
+    exp1 = [12.0] * 6
+    obs2 = [27.0, 30.0, 45.0]                    # sum 102, k=3, expected=34 each
+    exp2 = [34.0] * 3
+    obs3 = [85.0, 95.0, 110.0, 90.0]             # sum 380, k=4, expected=95 each
+    exp3 = [95.0] * 4
+    data["chisq_gof"] = [
+        {"observed": obs1, "expected": exp1, **gof_ref(obs1, exp1)},
+        {"observed": obs2, "expected": exp2, **gof_ref(obs2, exp2)},
+        {"observed": obs3, "expected": exp3, **gof_ref(obs3, exp3)},
+    ]
+
+    table_2x2 = [[10, 15], [20, 25]]
+    table_3x3 = [[10, 20, 15], [12, 18, 20], [15, 22, 18]]
+    data["chisq_ind"] = [
+        {"table": table_2x2, **ind_ref(table_2x2)},
+        {"table": table_3x3, **ind_ref(table_3x3)},
+    ]
+
+    # ----- ANOVA -----
+    def anova1_ref(y, grp):
+        groups_split = {}
+        for yi, gi in zip(y, grp):
+            groups_split.setdefault(gi, []).append(yi)
+        res = st.f_oneway(*groups_split.values())
+        k = len(groups_split)
+        n = len(y)
+        return {"statistic": float(res.statistic), "df1": k - 1, "df2": n - k,
+                "p_value": float(res.pvalue)}
+
+    anova_y = (10 * [5.0]) + (10 * [10.0]) + (10 * [15.0])
+    # add noise so the F-stat is finite
+    anova_y = [v + n for v, n in zip(anova_y, rng.standard_normal(30).tolist())]
+    anova_grp = (10 * [1]) + (10 * [2]) + (10 * [3])
+
+    anova2_y = rng.standard_normal(60).tolist()
+    anova2_grp = (15 * [1]) + (15 * [2]) + (15 * [3]) + (15 * [4])
+
+    data["anova1"] = [
+        {"y": anova_y, "grp": anova_grp, **anova1_ref(anova_y, anova_grp)},
+        {"y": anova2_y, "grp": anova2_grp, **anova1_ref(anova2_y, anova2_grp)},
+    ]
+
+    # ----- Correlation test -----
+    def cortest_ref(x, y):
+        res = st.pearsonr(x, y)
+        n = len(x)
+        r = res.statistic
+        # t = r * sqrt(n-2) / sqrt(1 - r^2)
+        tstat = r * np.sqrt(n - 2) / np.sqrt(1.0 - r * r)
+        return {"r": float(r), "statistic": float(tstat),
+                "df": n - 2, "p_value": float(res.pvalue)}
+
+    cor_x = list(range(100))
+    cor_y = (np.array(cor_x) + rng.standard_normal(100) * 5.0).tolist()
+    cor_x2 = rng.standard_normal(50).tolist()
+    cor_y2 = rng.standard_normal(50).tolist()
+
+    data["cortest"] = [
+        {"x": cor_x, "y": cor_y, **cortest_ref(cor_x, cor_y)},
+        {"x": cor_x2, "y": cor_y2, **cortest_ref(cor_x2, cor_y2)},
+    ]
+
+    # ----- Proportion test -----
+    def proptest_ref(x, n, p0):
+        phat = x / n
+        se = np.sqrt(p0 * (1 - p0) / n)
+        z = (phat - p0) / se
+        p = 2.0 * (1.0 - st.norm.cdf(abs(z)))
+        return {"statistic": float(z), "p_value": float(p)}
+
+    data["proptest"] = [
+        {"x": 60, "n": 100, "p0": 0.5, **proptest_ref(60, 100, 0.5)},
+        {"x": 45, "n": 100, "p0": 0.5, **proptest_ref(45, 100, 0.5)},
+        {"x": 530, "n": 1000, "p0": 0.5, **proptest_ref(530, 1000, 0.5)},
+    ]
+
+    with open("htest.json", "w") as f:
+        json.dump(data, f, indent=2)
+    n_cases = sum(len(v) for v in data.values())
+    print(f"  htest.json: {n_cases} test groups across {len(data)} functions")
+
+
 if __name__ == "__main__":
     print("Generating qstats reference values...")
     gen_special()
     gen_distributions()
     gen_linalg()
     gen_descriptive()
+    gen_htest()
     print("Done. All reference JSON files generated.")
