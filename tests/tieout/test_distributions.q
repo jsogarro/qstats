@@ -75,12 +75,20 @@ test_chisq_df:{[df_key]
   pchisq_actual:.dist.pchisq[pchisq_x;df];
   {.tst.assert_approx["pchisq(x=",string[x],")";y;z;1e-10]}'[pchisq_x;pchisq_actual;pchisq_expected];
 
-  / Test qchisq
+  / Test qchisq (keep original 1e-6 tolerance for df=1 exact formula)
   qchisq_data:df_data`qchisq;
   qchisq_p:qchisq_data`p;
   qchisq_expected:qchisq_data`y;
   qchisq_actual:.dist.qchisq[qchisq_p;df];
   {.tst.assert_approx["qchisq(p=",string[x],")";y;z;1e-6]}'[qchisq_p;qchisq_actual;qchisq_expected];
+
+  / Test qchisq extreme tails (Wave 8 Halley precision)
+  qchisq_ext_data:df_data`qchisq_extreme;
+  qchisq_ext_p:qchisq_ext_data`p;
+  qchisq_ext_expected:qchisq_ext_data`y;
+  qchisq_ext_actual:.dist.qchisq[qchisq_ext_p;df];
+  / Use 1e-6 tolerance to accommodate df=1 exact formula precision floor
+  {.tst.assert_approx["qchisq_extreme(p=",string[x],")";y;z;1e-6]}'[qchisq_ext_p;qchisq_ext_actual;qchisq_ext_expected];
  };
 
 test_chisq_df each `df_1`df_2`df_5`df_10`df_20;
@@ -113,12 +121,20 @@ test_t_df:{[df_key]
   pt_actual:.dist.pt[pt_x;df];
   {.tst.assert_approx["pt(x=",string[x],")";y;z;1e-10]}'[pt_x;pt_actual;pt_expected];
 
-  / Test qt
+  / Test qt (keep original 1e-6 tolerance)
   qt_data:df_data`qt;
   qt_p:qt_data`p;
   qt_expected:qt_data`y;
   qt_actual:.dist.qt[qt_p;df];
   {.tst.assert_approx["qt(p=",string[x],")";y;z;1e-6]}'[qt_p;qt_actual;qt_expected];
+
+  / Test qt extreme tails (Wave 8 Halley precision)
+  qt_ext_data:df_data`qt_extreme;
+  qt_ext_p:qt_ext_data`p;
+  qt_ext_expected:qt_ext_data`y;
+  qt_ext_actual:.dist.qt[qt_ext_p;df];
+  / Use 5e-8 tolerance to accommodate betainc precision floor at extreme tails for df=1,2
+  {.tst.assert_approx["qt_extreme(p=",string[x],")";y;z;5e-8]}'[qt_ext_p;qt_ext_actual;qt_ext_expected];
  };
 
 test_t_df each `df_1`df_2`df_5`df_10`df_30;

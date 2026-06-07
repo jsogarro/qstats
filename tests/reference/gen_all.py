@@ -89,6 +89,8 @@ def gen_distributions():
     x_chisq = [0.0, 0.5, 1.0, 2.0, 3.84, 5.0, 10.0, 20.0]
     p_chisq = [0.01, 0.025, 0.05, 0.1, 0.5, 0.9, 0.95, 0.975, 0.99]
     df_chisq = [1.0, 2.0, 5.0, 10.0, 20.0]
+    # Extreme tail probabilities for Wave 8 Halley precision test
+    p_extreme = [0.0001, 0.001, 0.005, 0.01, 0.05, 0.95, 0.99, 0.995, 0.999, 0.9999]
 
     data["chisq"] = {}
     for df in df_chisq:
@@ -96,7 +98,8 @@ def gen_distributions():
             "df": df,
             "dchisq": {"x": x_chisq, "y": [float(st.chi2.pdf(x, df)) for x in x_chisq]},
             "pchisq": {"x": x_chisq, "y": [float(st.chi2.cdf(x, df)) for x in x_chisq]},
-            "qchisq": {"p": p_chisq, "y": [float(st.chi2.ppf(p, df)) for p in p_chisq]}
+            "qchisq": {"p": p_chisq, "y": [float(st.chi2.ppf(p, df)) for p in p_chisq]},
+            "qchisq_extreme": {"p": p_extreme, "y": [float(st.chi2.ppf(p, df)) for p in p_extreme]}
         }
 
     # Student's t distribution
@@ -110,7 +113,8 @@ def gen_distributions():
             "df": df,
             "dt": {"x": x_t, "y": [float(st.t.pdf(x, df)) for x in x_t]},
             "pt": {"x": x_t, "y": [float(st.t.cdf(x, df)) for x in x_t]},
-            "qt": {"p": p_t, "y": [float(st.t.ppf(p, df)) for p in p_t]}
+            "qt": {"p": p_t, "y": [float(st.t.ppf(p, df)) for p in p_t]},
+            "qt_extreme": {"p": p_extreme, "y": [float(st.t.ppf(p, df)) for p in p_extreme]}
         }
 
     # F distribution

@@ -162,7 +162,7 @@
   .special.gammainc[a;] each xx%2f
  };
 
-/ @desc Chi-squared quantile function via Newton-Raphson
+/ @desc Chi-squared quantile function via Halley's method
 / @param pp:float — probability (0 < p < 1)
 / @param df:float — degrees of freedom (> 0)
 / @return float — quantile value(s)
@@ -172,21 +172,39 @@
   / Special case: df=1 has exact formula
   $[df<1.5;
     [z1:.dist.qnorm_scalar[(1f+p)%2f;0f;1f]; z1*z1];
-    / General case: Wilson-Hilferty approximation
+    / General case: Cornish-Fisher second-order expansion for df >= 3
     [z:.dist.qnorm_scalar[p;0f;1f];
-     wh_inner:(1f-(2f%(9f*df)))+(z*sqrt 2f%(9f*df));
-     / Use simpler guess if Wilson-Hilferty gives negative value
-     x:$[wh_inner>0f; df*xexp[wh_inner;3]; $[p<0.1; df*p; df]];
-     / Newton-Raphson iterations
-     i:0; maxiter:100; tol:1e-10;
-     while[(i<maxiter) and tol<abs fx:.dist.pchisq[x;df]-p;
-       dpdf:.dist.dchisq[x;df];
-       / Guard against division by near-zero derivative to prevent overflow.
-       / Chi-squared PDF → 0 as x → 0 for df>2, and → ∞ as x → ∞.
-       / Threshold 1e-200 chosen to stay safely above IEEE 754 subnormals
-       / while allowing convergence for extreme quantiles (p near 0 or 1).
-       x:$[dpdf>1e-200; x-(fx%dpdf); x*0.5];
-       i+:1];
+     x:$[df>=3f;
+       [wh_base:(1f-(2f%(9f*df)))+(z*sqrt 2f%(9f*df));
+        / Wilson-Hilferty term
+        x_wh:df*xexp[wh_base;3];
+        / Second-order correction: (z^2 - 1)*(2*df)/54 - z^3*sqrt(df)/9
+        term1_cf:(((z*z)-1f)*2f*df)%54f;
+        term2_cf:((z*z*z)*sqrt df)%9f;
+        correction:term1_cf-term2_cf;
+        x_wh+correction];
+       / Fallback for df < 3: existing Wilson-Hilferty
+       [wh_inner:(1f-(2f%(9f*df)))+(z*sqrt 2f%(9f*df));
+        $[wh_inner>0f; df*xexp[wh_inner;3]; $[p<0.1; df*p; df]]]];
+     / Halley's method: x_new = x - (2*fx*fpx) / (2*fpx^2 - fx*fppx)
+     ii:0; maxiter:20; tol:1e-12;
+     while[(ii<maxiter) and (tol<abs fx:.dist.pchisq[x;df]-p);
+       fpx:.dist.dchisq[x;df];
+       / Guard against zero derivative
+       if[fpx<1e-200; fpx:1e-200];
+       / Second derivative of chi-squared PDF:
+       /   fppx = dchisq(x; df) * ((df/2 - 1)/x - 1/2)
+       ay:df%2f;
+       fppx:$[x>1e-12; fpx*(((ay-1f)%x)-0.5f); 0f];
+       / Halley step
+       numer:2f*fx*fpx;
+       denom:(2f*fpx*fpx)-(fx*fppx);
+       / Guard against division by zero
+       delta:$[abs[denom]>1e-200; numer%denom; fx%fpx];
+       x:x-delta;
+       / Clamp to [0, inf)
+       x:0f|x;
+       ii+:1];
      x]
   ]
  };
@@ -237,20 +255,35 @@
   ?[xx<0;betacdf;1f-betacdf]
  };
 
-/ @desc Student's t quantile function via Newton-Raphson
+/ @desc Student's t quantile function via Halley's method
 / @param pp:float — probability (0 < p < 1)
 / @param df:float — degrees of freedom (> 0)
 / @return float — quantile value(s)
 .dist.qt_scalar:{[p;df]
   .dist.validate[(p>0f)&p<1f;"p must be in (0,1)"];
   .dist.validate[df>0f;"df must be positive"];
-  / Initial guess: use normal quantile
-  x:.dist.qnorm_scalar[p;0f;1f];
-  / Newton-Raphson iterations
-  i:0; maxiter:50; tol:1e-10;
-  while[(i<maxiter) and tol<abs fx:.dist.pt[x;df]-p;
-    x:x-(fx%.dist.dt[x;df]);
-    i+:1];
+  / Cornish-Fisher initial guess for df >= 5
+  z:.dist.qnorm_scalar[p;0f;1f];
+  x:$[df>=5f;
+    [g2:6f%(df-4f);
+     / x_0 = z + (g2/4)*(z^3 - 3*z)
+     z+((g2%4f)*((z*z*z)-(3f*z)))];
+    / Fallback for df < 5: plain normal quantile
+    z];
+  / Halley's method iterations
+  ii:0; maxiter:20; tol:1e-12;
+  while[(ii<maxiter) and (tol<abs fx:.dist.pt[x;df]-p);
+    fpx:.dist.dt[x;df];
+    / Second derivative of t PDF:
+    /   fppx = -dt(x; df) * x * (df+1) / (df + x^2)
+    denom_fpp:df+(x*x);
+    fppx:$[abs[denom_fpp]>1e-12; (neg fpx)*x*(df+1f)%denom_fpp; 0f];
+    / Halley step
+    numer:2f*fx*fpx;
+    denom:(2f*fpx*fpx)-(fx*fppx);
+    delta:$[abs[denom]>1e-200; numer%denom; fx%fpx];
+    x:x-delta;
+    ii+:1];
   x
  };
 .dist.qt:{[pp;df] .dist.qt_scalar[;df] each pp};
