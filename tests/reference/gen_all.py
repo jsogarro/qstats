@@ -611,6 +611,79 @@ def gen_nonparam():
     print(f"  nonparam.json: {n_cases} test groups across {len(data)} functions")
 
 
+def gen_diagnostics():
+    """Generate reference values for Wave 6 regression diagnostics."""
+    import statsmodels.api as sm
+    from statsmodels.stats.diagnostic import het_breuschpagan, het_white
+    from statsmodels.stats.stattools import durbin_watson
+    from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+    rng = np.random.default_rng(42)
+    n = 30
+    p_nonconst = 3
+    # Build design matrix with intercept + 3 predictors, then deliberately
+    # introduce one high-leverage point and one outlier to exercise the
+    # influence diagnostics.
+    X_raw = rng.standard_normal((n, p_nonconst))
+    X_raw[5, :] *= 4.0  # high leverage row
+    X = np.hstack([np.ones((n, 1)), X_raw])
+    true_beta = np.array([1.5, 0.7, -0.4, 1.1])
+    y = X @ true_beta + rng.standard_normal(n) * 0.5
+    y[10] += 4.0  # outlier on the response
+
+    model = sm.OLS(y, X).fit()
+    infl = model.get_influence()
+
+    data = {}
+    data["dataset"] = {
+        "X": X.tolist(),
+        "y": y.tolist(),
+        "beta": model.params.tolist(),
+        "residuals": model.resid.tolist(),
+        "fitted": model.fittedvalues.tolist(),
+        "leverage": infl.hat_matrix_diag.tolist(),
+        "n": int(n),
+        "p": int(X.shape[1]),
+        "rss": float(model.ssr),
+        "tss": float(model.centered_tss),
+    }
+
+    # VIF: statsmodels returns VIF per column including intercept; we skip
+    # the intercept column (R `car::vif` convention, matches the plan).
+    data["vif"] = [float(variance_inflation_factor(X, i))
+                   for i in range(1, X.shape[1])]
+
+    data["cooks_distance"] = infl.cooks_distance[0].tolist()
+    data["dffits"] = infl.dffits[0].tolist()
+    data["dfbetas"] = infl.dfbetas.tolist()
+
+    data["durbin_watson"] = float(durbin_watson(model.resid))
+
+    bp = het_breuschpagan(model.resid, X)
+    # statsmodels het_breuschpagan returns (lm_stat, lm_pvalue, fvalue, f_pvalue)
+    data["breusch_pagan"] = {"statistic": float(bp[0]), "df": X.shape[1] - 1,
+                             "p_value": float(bp[1])}
+
+    wh = het_white(model.resid, X)
+    data["white_test"] = {"statistic": float(wh[0]),
+                          "p_value": float(wh[1])}
+
+    data["rsquared"] = {"rsq": float(model.rsquared),
+                        "adj_rsq": float(model.rsquared_adj)}
+    data["aic"] = float(model.aic)
+    data["bic"] = float(model.bic)
+
+    # Jarque-Bera on residuals via the same Wave 5 scipy.stats reference,
+    # except we use biased moments (matches scipy.stats.jarque_bera).
+    jb_res = st.jarque_bera(model.resid)
+    data["jarque_bera"] = {"statistic": float(jb_res.statistic),
+                           "df": 2, "p_value": float(jb_res.pvalue)}
+
+    with open("diagnostics.json", "w") as f:
+        json.dump(data, f, indent=2)
+    print(f"  diagnostics.json: 1 dataset + {len(data) - 1} diagnostic groups")
+
+
 if __name__ == "__main__":
     print("Generating qstats reference values...")
     gen_special()
@@ -619,4 +692,5 @@ if __name__ == "__main__":
     gen_descriptive()
     gen_htest()
     gen_nonparam()
+    gen_diagnostics()
     print("Done. All reference JSON files generated.")
