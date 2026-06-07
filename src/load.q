@@ -31,4 +31,7 @@
 -1 "    .htest.{ttest1,ttest2,welch,ttest_paired}";
 -1 "    .htest.{ftest,chisq_gof,chisq_ind,anova1}";
 -1 "    .htest.{cortest,proptest}";
+-1 "  Nonparametric tests:";
+-1 "    .htest.{ks,mannwhitney,wilcoxon}";
+-1 "    .htest.{shapiro,jarque_bera}";
 -1 "";
