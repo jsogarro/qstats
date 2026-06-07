@@ -48,7 +48,9 @@
   tstat:(mx-my)%se;
   df:nx+ny-2;
   pval:2f*.dist.pt[neg abs tstat;df];
-  `statistic`df`p_value`method`alternative`ci!(tstat;df;pval;"Two Sample t-test (equal variance)";"two.sided";(0n;0n))
+  tcrit:.dist.qt[0.975;df];
+  ci:(mx-my)+(neg tcrit*se;tcrit*se);
+  `statistic`df`p_value`method`alternative`ci!(tstat;df;pval;"Two Sample t-test (equal variance)";"two.sided";ci)
  };
 
 / Welch's t-test (unequal variance), Welch-Satterthwaite df.
@@ -68,7 +70,9 @@
   den:((vx_n xexp 2)%nx-1)+(vy_n xexp 2)%ny-1;
   df:num%den;
   pval:2f*.dist.pt[neg abs tstat;df];
-  `statistic`df`p_value`method`alternative`ci!(tstat;df;pval;"Welch Two Sample t-test";"two.sided";(0n;0n))
+  tcrit:.dist.qt[0.975;df];
+  ci:(mx-my)+(neg tcrit*se;tcrit*se);
+  `statistic`df`p_value`method`alternative`ci!(tstat;df;pval;"Welch Two Sample t-test";"two.sided";ci)
  };
 
 / Paired t-test: reduces to one-sample t-test on differences.
@@ -96,7 +100,10 @@
   df2:ny-1;
   cdf:.dist.pf[fstat;df1;df2];
   pval:2f*$[cdf<0.5;cdf;1f-cdf];
-  `statistic`df`p_value`method`alternative`ci!(fstat;(df1;df2);pval;"F test to compare two variances";"two.sided";(0n;0n))
+  f_lo:.dist.qf[0.025;df1;df2];
+  f_hi:.dist.qf[0.975;df1;df2];
+  ci:(fstat%f_hi;fstat%f_lo);
+  `statistic`df`p_value`method`alternative`ci!(fstat;(df1;df2);pval;"F test to compare two variances";"two.sided";ci)
  };
 
 /=============================================================================
@@ -174,7 +181,17 @@
   tstat:(r*sqrt n-2)%sqrt 1f-r*r;
   df:n-2;
   pval:2f*.dist.pt[neg abs tstat;df];
-  `statistic`df`p_value`method`alternative`ci!(tstat;df;pval;"Pearson's product-moment correlation";"two.sided";(0n;0n))
+  / Fisher z-transformation CI
+  r_clamp:$[r>0.9999999;0.9999999;r<neg 0.9999999;neg 0.9999999;r];
+  z:0.5*log (1f+r_clamp)%(1f-r_clamp);
+  se_z:1f%sqrt n-3f;
+  z_crit:.dist.qnorm[0.975;0f;1f];
+  z_lo:z-(z_crit*se_z);
+  z_hi:z+(z_crit*se_z);
+  / Transform back via tanh(z) = (exp(2z) - 1) / (exp(2z) + 1)
+  tanh:{[zz] e2z:exp 2f*zz; (e2z-1f)%(e2z+1f)};
+  ci:(tanh z_lo;tanh z_hi);
+  `statistic`df`p_value`method`alternative`ci!(tstat;df;pval;"Pearson's product-moment correlation";"two.sided";ci)
  };
 
 /=============================================================================
@@ -204,7 +221,16 @@
   se:sqrt (p0*1f-p0)%n;
   zstat:(phat-p0)%se;
   pval:2f*.dist.pnorm[neg abs zstat;0f;1f];
-  `statistic`df`p_value`method`alternative`ci!(zstat;0n;pval;"1-sample test for proportion (no continuity correction)";"two.sided";(0n;0n))
+  / Wilson score CI
+  z_crit:.dist.qnorm[0.975;0f;1f];
+  z2:z_crit*z_crit;
+  denom:1f+(z2%n);
+  center_num:phat+(z2%(2f*n));
+  center:center_num%denom;
+  var_term:(phat*(1f-phat)%n)+(z2%(4f*n*n));
+  margin:(z_crit*sqrt var_term)%denom;
+  ci:(0f|center-margin;1f&center+margin);
+  `statistic`df`p_value`method`alternative`ci!(zstat;0n;pval;"1-sample test for proportion (no continuity correction)";"two.sided";ci)
  };
 
 /=============================================================================

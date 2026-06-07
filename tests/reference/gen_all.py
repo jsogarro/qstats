@@ -348,18 +348,21 @@ def gen_htest():
 
     def ttest2_ref(x, y):
         res = st.ttest_ind(x, y, equal_var=True)
+        ci = res.confidence_interval(confidence_level=0.95)
         return {"statistic": float(res.statistic), "p_value": float(res.pvalue),
-                "df": float(len(x) + len(y) - 2)}
+                "df": float(len(x) + len(y) - 2), "ci_lo": float(ci.low), "ci_hi": float(ci.high)}
 
     def welch_ref(x, y):
         res = st.ttest_ind(x, y, equal_var=False)
+        ci = res.confidence_interval(confidence_level=0.95)
         return {"statistic": float(res.statistic), "p_value": float(res.pvalue),
-                "df": float(res.df)}
+                "df": float(res.df), "ci_lo": float(ci.low), "ci_hi": float(ci.high)}
 
     def ttest_paired_ref(x, y):
         res = st.ttest_rel(x, y)
+        ci = res.confidence_interval(confidence_level=0.95)
         return {"statistic": float(res.statistic), "p_value": float(res.pvalue),
-                "df": float(len(x) - 1)}
+                "df": float(len(x) - 1), "ci_lo": float(ci.low), "ci_hi": float(ci.high)}
 
     data["ttest1"] = [
         {"x": x1, "mu0": 3.0, **ttest1_ref(x1, 3.0)},
@@ -393,7 +396,13 @@ def gen_htest():
         df1, df2 = len(x) - 1, len(y) - 1
         cdf = st.f.cdf(F, df1, df2)
         pval = 2.0 * min(cdf, 1.0 - cdf)
-        return {"statistic": float(F), "df1": df1, "df2": df2, "p_value": float(pval)}
+        # CI for variance ratio
+        f_lo = st.f.ppf(0.025, df1, df2)
+        f_hi = st.f.ppf(0.975, df1, df2)
+        ci_lo = F / f_hi
+        ci_hi = F / f_lo
+        return {"statistic": float(F), "df1": df1, "df2": df2, "p_value": float(pval),
+                "ci_lo": float(ci_lo), "ci_hi": float(ci_hi)}
 
     data["ftest"] = [
         {"x": x_norm0, "y": x_norm2, **ftest_ref(x_norm0, x_norm2)},
@@ -463,8 +472,17 @@ def gen_htest():
         r = res.statistic
         # t = r * sqrt(n-2) / sqrt(1 - r^2)
         tstat = r * np.sqrt(n - 2) / np.sqrt(1.0 - r * r)
+        # Fisher z CI
+        z = np.arctanh(r)
+        se_z = 1.0 / np.sqrt(n - 3)
+        z_crit = st.norm.ppf(0.975)
+        z_lo = z - z_crit * se_z
+        z_hi = z + z_crit * se_z
+        ci_lo = np.tanh(z_lo)
+        ci_hi = np.tanh(z_hi)
         return {"r": float(r), "statistic": float(tstat),
-                "df": n - 2, "p_value": float(res.pvalue)}
+                "df": n - 2, "p_value": float(res.pvalue),
+                "ci_lo": float(ci_lo), "ci_hi": float(ci_hi)}
 
     cor_x = list(range(100))
     cor_y = (np.array(cor_x) + rng.standard_normal(100) * 5.0).tolist()
@@ -478,11 +496,15 @@ def gen_htest():
 
     # ----- Proportion test -----
     def proptest_ref(x, n, p0):
+        from statsmodels.stats.proportion import proportion_confint
         phat = x / n
         se = np.sqrt(p0 * (1 - p0) / n)
         z = (phat - p0) / se
         p = 2.0 * (1.0 - st.norm.cdf(abs(z)))
-        return {"statistic": float(z), "p_value": float(p)}
+        # Wilson CI via statsmodels
+        ci_lo, ci_hi = proportion_confint(x, n, alpha=0.05, method='wilson')
+        return {"statistic": float(z), "p_value": float(p),
+                "ci_lo": float(ci_lo), "ci_hi": float(ci_hi)}
 
     data["proptest"] = [
         {"x": 60, "n": 100, "p0": 0.5, **proptest_ref(60, 100, 0.5)},
