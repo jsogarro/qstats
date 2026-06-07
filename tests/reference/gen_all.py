@@ -89,6 +89,8 @@ def gen_distributions():
     x_chisq = [0.0, 0.5, 1.0, 2.0, 3.84, 5.0, 10.0, 20.0]
     p_chisq = [0.01, 0.025, 0.05, 0.1, 0.5, 0.9, 0.95, 0.975, 0.99]
     df_chisq = [1.0, 2.0, 5.0, 10.0, 20.0]
+    # Extreme tail probabilities for Wave 8 Halley precision test
+    p_extreme = [0.0001, 0.001, 0.005, 0.01, 0.05, 0.95, 0.99, 0.995, 0.999, 0.9999]
 
     data["chisq"] = {}
     for df in df_chisq:
@@ -96,7 +98,8 @@ def gen_distributions():
             "df": df,
             "dchisq": {"x": x_chisq, "y": [float(st.chi2.pdf(x, df)) for x in x_chisq]},
             "pchisq": {"x": x_chisq, "y": [float(st.chi2.cdf(x, df)) for x in x_chisq]},
-            "qchisq": {"p": p_chisq, "y": [float(st.chi2.ppf(p, df)) for p in p_chisq]}
+            "qchisq": {"p": p_chisq, "y": [float(st.chi2.ppf(p, df)) for p in p_chisq]},
+            "qchisq_extreme": {"p": p_extreme, "y": [float(st.chi2.ppf(p, df)) for p in p_extreme]}
         }
 
     # Student's t distribution
@@ -110,7 +113,8 @@ def gen_distributions():
             "df": df,
             "dt": {"x": x_t, "y": [float(st.t.pdf(x, df)) for x in x_t]},
             "pt": {"x": x_t, "y": [float(st.t.cdf(x, df)) for x in x_t]},
-            "qt": {"p": p_t, "y": [float(st.t.ppf(p, df)) for p in p_t]}
+            "qt": {"p": p_t, "y": [float(st.t.ppf(p, df)) for p in p_t]},
+            "qt_extreme": {"p": p_extreme, "y": [float(st.t.ppf(p, df)) for p in p_extreme]}
         }
 
     # F distribution
@@ -607,6 +611,29 @@ def gen_nonparam():
         {"x": sw_exp50, **shapiro_ref(sw_exp50)},
     ]
 
+    # Add small-sample Shapiro-Wilk cases (n in [4, 11]) for Wave 8 Gap B2
+    sw_small_samples = {
+        4: rng.standard_normal(4).tolist(),
+        5: rng.standard_normal(5).tolist(),
+        6: rng.standard_normal(6).tolist(),
+        7: rng.standard_normal(7).tolist(),
+        8: rng.standard_normal(8).tolist(),
+        9: rng.standard_normal(9).tolist(),
+        10: rng.standard_normal(10).tolist(),
+        11: rng.standard_normal(11).tolist(),
+    }
+    data["shapiro_small"] = [
+        {"n": n, "x": x, **shapiro_ref(x)}
+        for n, x in sw_small_samples.items()
+    ]
+    # Also add edge cases: uniform and exponential for small n
+    sw_unif8 = rng.uniform(-1, 1, 8).tolist()
+    sw_exp10 = rng.exponential(1.0, 10).tolist()
+    data["shapiro_small"].extend([
+        {"n": 8, "x": sw_unif8, **shapiro_ref(sw_unif8)},
+        {"n": 10, "x": sw_exp10, **shapiro_ref(sw_exp10)},
+    ])
+
     # ----- Jarque-Bera -----
     def jb_ref(x):
         res = st.jarque_bera(x)
@@ -680,6 +707,39 @@ def gen_diagnostics():
     data["dfbetas"] = infl.dfbetas.tolist()
 
     data["durbin_watson"] = float(durbin_watson(model.resid))
+
+    # Durbin-Watson p-value via Pan's beta approximation (eigenvalue-based)
+    # statsmodels doesn't compute this, so implement it here
+    def durbin_watson_pvalue(dw_stat, X, n, p):
+        # Construct A (differencing matrix)
+        A = np.zeros((n, n))
+        for i in range(1, n):
+            A[i, i] = 1
+            A[i, i-1] = -1
+        # Compute M = I - H
+        H = X @ np.linalg.inv(X.T @ X) @ X.T
+        M = np.eye(n) - H
+        # Eigenvalues of M @ A @ M
+        MAM = M @ A @ M
+        eigvals = np.linalg.eigvalsh(MAM)  # symmetric, so eigvalsh
+        # Mean and variance
+        mu = eigvals.sum() / (n - p)
+        var = 2 * (np.sum(eigvals**2) - eigvals.sum()**2 / (n - p)) / (n - p)**2
+        # Guard against zero variance
+        if var < 1e-12:
+            var = 1e-12
+        # Beta parameters
+        a = mu * (mu * (4 - mu) / var - 1) / 2
+        b = (4 - mu) * a / mu if mu > 1e-12 else a
+        # p-value
+        x = dw_stat / 4.0
+        from scipy.stats import beta
+        pval = beta.cdf(x, a, b)
+        return float(pval)
+
+    data["durbin_watson_pvalue"] = durbin_watson_pvalue(
+        data["durbin_watson"], X, n, X.shape[1]
+    )
 
     bp = het_breuschpagan(model.resid, X)
     # statsmodels het_breuschpagan returns (lm_stat, lm_pvalue, fvalue, f_pvalue)

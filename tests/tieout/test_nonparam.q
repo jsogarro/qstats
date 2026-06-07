@@ -51,6 +51,21 @@ sw_cases:ref`shapiro;
     .tst.assert_approx["shapiro[",string[i],"] p_value";`float$res`p_value;`float$c`p_value;0.01]]
  }'[sw_cases;til count sw_cases];
 
+/ ----- Shapiro-Wilk small-sample (n in [4, 11]) -----
+/ Wave 8 Gap B2: Royston small-sample transform
+-1 "\nShapiro-Wilk small-sample (n in [4, 11]):";
+sw_small_cases:ref`shapiro_small;
+{[c;i]
+  res:.htest.shapiro c`x;
+  nn:count c`x;
+  / For n=4, epsilon calculation has numerical instability (divide by ~1e-4); widen W tolerance
+  w_tol:$[nn=4;3e-4;1e-4];
+  .tst.assert_approx["shapiro_small[",string[i],"] W";`float$res`statistic;`float$c`statistic;w_tol];
+  / p-value tolerance for small n is documented as ~1e-2 (Royston's accuracy floor)
+  / But scipy's implementation is tighter; use 5e-3 to allow for the polynomial approx.
+  .tst.assert_approx["shapiro_small[",string[i],"] p_value";`float$res`p_value;`float$c`p_value;5e-3]
+ }'[sw_small_cases;til count sw_small_cases];
+
 / ----- Jarque-Bera -----
 -1 "\nJarque-Bera:";
 jb_cases:ref`jarque_bera;

@@ -37,7 +37,12 @@ dfb_ref:`float$ref`dfbetas;
 
 / ----- Durbin-Watson -----
 -1 "\n.diag.durbin_watson:";
-.tst.assert_approx["durbin_watson";`float$.diag.durbin_watson model;`float$ref`durbin_watson;1e-10];
+dw_res:.diag.durbin_watson model;
+expected_dw:`float$ref`durbin_watson;
+.tst.assert_approx["durbin_watson_stat";`float$dw_res`statistic;expected_dw;1e-10];
+/ p-value (Pan's beta approximation, tolerance 1e-2 per plan)
+expected_p:`float$ref`durbin_watson_pvalue;
+.tst.assert_approx["durbin_watson_pvalue";`float$dw_res`p_value;expected_p;1e-2];
 
 / ----- Breusch-Pagan -----
 -1 "\n.diag.breusch_pagan:";

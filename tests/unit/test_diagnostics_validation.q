@@ -32,11 +32,15 @@ r2:.diag.rsquared mdl;
 .tst.assert["bic is finite";not null .diag.bic mdl];
 .tst.assert["bic > aic when n > exp(2)";(.diag.bic mdl)>.diag.aic mdl];
 
-/ Durbin-Watson is in [0, 4]. Tighter bounds depend on residual correlation
-/ structure; our deterministic sinusoidal noise is autocorrelated so we only
-/ check the range.
-dw:.diag.durbin_watson mdl;
-.tst.assert["dw in [0, 4]";((dw)>=0f) and dw<=4f];
+/ Durbin-Watson returns a dict with statistic, p_value, etc.
+/ DW statistic is in [0, 4]. p_value is in [0, 1].
+dw_res:.diag.durbin_watson mdl;
+.tst.assert["dw has statistic";`statistic in key dw_res];
+.tst.assert["dw has p_value";`p_value in key dw_res];
+dw_stat:dw_res`statistic;
+dw_pval:dw_res`p_value;
+.tst.assert["dw statistic in [0, 4]";((dw_stat)>=0f) and dw_stat<=4f];
+.tst.assert["dw p_value in [0, 1]";((dw_pval)>=0f) and dw_pval<=1f];
 
 / Cook's distance / DFFITS / DFBETAS shapes
 .tst.assert["cooks_distance length = n";N=count .diag.cooks_distance mdl];

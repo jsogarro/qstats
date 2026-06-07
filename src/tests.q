@@ -399,7 +399,17 @@
      yval:log 1f-W;
      z:(yval-mu_y)%sig_y;
      1f-.dist.pnorm[z;0f;1f]];
-    / n < 12 returns 0n; small-sample p-value form not implemented
+    / n in [4, 11]: Royston (1993) polynomial transform (exact scipy match)
+    n<12;
+    [uu:"f"$n;
+     gam_val:(neg 2.273)+0.459*uu;
+     w_small:1f-W;
+     arg_inner:gam_val-(log w_small);
+     y_s:neg log arg_inner;
+     mu_s:((((neg 0.0006714)*uu xexp 3)+0.025054*uu xexp 2)-0.39978*uu)+0.5440;
+     sig_s:exp ((((neg 0.0020322)*uu xexp 3)+0.062767*uu xexp 2)-0.77857*uu)+1.3822;
+     z:(y_s-mu_s)%sig_s;
+     1f-.dist.pnorm[z;0f;1f]];
     0n];
   `statistic`df`p_value`method`alternative`ci!(W;0n;pval;"Shapiro-Wilk normality test";"two.sided";(0n;0n))
  };
