@@ -47,10 +47,12 @@ if[not ref_exists; -1 "WARNING: Reference files not found. Run: cd tests/referen
 \l tests/tieout/test_special.q
 \l tests/tieout/test_distributions.q
 \l tests/tieout/test_descriptive.q
+\l tests/tieout/test_htest.q
 \l tests/unit/test_linalg.q
 \l tests/unit/test_validation.q
 \l tests/unit/test_random_variates.q
 \l tests/unit/test_descriptive_extras.q
+\l tests/unit/test_htest_validation.q
 
 / Summary
 -1 "\n============================================================";

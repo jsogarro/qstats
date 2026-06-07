@@ -7,9 +7,10 @@
 \l src/special.q
 \l src/distributions.q
 \l src/descriptive.q
+\l src/tests.q
 
 -1 "";
--1 "qstats loaded. Namespaces: .special .dist .la .desc";
+-1 "qstats loaded. Namespaces: .special .dist .la .desc .htest";
 -1 "  Special functions:";
 -1 "    .special.lgamma[z]          — log-gamma function";
 -1 "    .special.betainc[x;a;b]     — regularized incomplete beta";
@@ -26,4 +27,8 @@
 -1 "    .desc.{skewness,kurtosis,quantile,percentile}";
 -1 "    .desc.{cor,spearman,kendall,cov,cov_matrix,cor_matrix}";
 -1 "    .desc.{summary,freq,crosstab}";
+-1 "  Parametric hypothesis tests:";
+-1 "    .htest.{ttest1,ttest2,welch,ttest_paired}";
+-1 "    .htest.{ftest,chisq_gof,chisq_ind,anova1}";
+-1 "    .htest.{cortest,proptest}";
 -1 "";
