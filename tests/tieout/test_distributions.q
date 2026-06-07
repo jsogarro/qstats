@@ -46,3 +46,169 @@ qnorm_sigma:qnorm_data`sigma;
 qnorm_expected:qnorm_data`y;
 qnorm_actual:.dist.qnorm[qnorm_p;qnorm_mu;qnorm_sigma];
 {.tst.assert_approx["qnorm(p=",string[x],")";y;z;1e-7]}'[qnorm_p;qnorm_actual;qnorm_expected];
+
+/=============================================================================
+/ CHI-SQUARED DISTRIBUTION TESTS
+/=============================================================================
+
+-1 "\n--- Chi-Squared Distribution Tie-Out Tests ---";
+
+chisq_ref:ref`chisq;
+
+/ Test dchisq, pchisq, qchisq for each df
+test_chisq_df:{[df_key]
+  -1 "\nTesting chi-squared with ",string[df_key],":";
+  df_data:chisq_ref[df_key];
+  df:df_data`df;
+
+  / Test dchisq
+  dchisq_data:df_data`dchisq;
+  dchisq_x:dchisq_data`x;
+  dchisq_expected:dchisq_data`y;
+  dchisq_actual:.dist.dchisq[dchisq_x;df];
+  {.tst.assert_approx["dchisq(x=",string[x],")";y;z;1e-10]}'[dchisq_x;dchisq_actual;dchisq_expected];
+
+  / Test pchisq
+  pchisq_data:df_data`pchisq;
+  pchisq_x:pchisq_data`x;
+  pchisq_expected:pchisq_data`y;
+  pchisq_actual:.dist.pchisq[pchisq_x;df];
+  {.tst.assert_approx["pchisq(x=",string[x],")";y;z;1e-10]}'[pchisq_x;pchisq_actual;pchisq_expected];
+
+  / Test qchisq
+  qchisq_data:df_data`qchisq;
+  qchisq_p:qchisq_data`p;
+  qchisq_expected:qchisq_data`y;
+  qchisq_actual:.dist.qchisq[qchisq_p;df];
+  {.tst.assert_approx["qchisq(p=",string[x],")";y;z;1e-6]}'[qchisq_p;qchisq_actual;qchisq_expected];
+ };
+
+test_chisq_df each `df_1`df_2`df_5`df_10`df_20;
+
+/=============================================================================
+/ STUDENT'S T DISTRIBUTION TESTS
+/=============================================================================
+
+-1 "\n--- Student's t Distribution Tie-Out Tests ---";
+
+t_ref:ref`t;
+
+/ Test dt, pt, qt for each df
+test_t_df:{[df_key]
+  -1 "\nTesting t-distribution with ",string[df_key],":";
+  df_data:t_ref[df_key];
+  df:df_data`df;
+
+  / Test dt
+  dt_data:df_data`dt;
+  dt_x:dt_data`x;
+  dt_expected:dt_data`y;
+  dt_actual:.dist.dt[dt_x;df];
+  {.tst.assert_approx["dt(x=",string[x],")";y;z;1e-10]}'[dt_x;dt_actual;dt_expected];
+
+  / Test pt
+  pt_data:df_data`pt;
+  pt_x:pt_data`x;
+  pt_expected:pt_data`y;
+  pt_actual:.dist.pt[pt_x;df];
+  {.tst.assert_approx["pt(x=",string[x],")";y;z;1e-10]}'[pt_x;pt_actual;pt_expected];
+
+  / Test qt
+  qt_data:df_data`qt;
+  qt_p:qt_data`p;
+  qt_expected:qt_data`y;
+  qt_actual:.dist.qt[qt_p;df];
+  {.tst.assert_approx["qt(p=",string[x],")";y;z;1e-6]}'[qt_p;qt_actual;qt_expected];
+ };
+
+test_t_df each `df_1`df_2`df_5`df_10`df_30;
+
+/=============================================================================
+/ F DISTRIBUTION TESTS
+/=============================================================================
+
+-1 "\n--- F Distribution Tie-Out Tests ---";
+
+f_ref:ref`f;
+
+/ Test df, pf, qf for each df pair
+test_f_df:{[df_key]
+  -1 "\nTesting F-distribution with ",string[df_key],":";
+  df_data:f_ref[df_key];
+  df1:df_data`df1;
+  df2:df_data`df2;
+
+  / Test df (PDF)
+  df_pdf_data:df_data`df;
+  df_x:df_pdf_data`x;
+  df_expected:df_pdf_data`y;
+  df_actual:.dist.df[df_x;df1;df2];
+  {.tst.assert_approx["df(x=",string[x],")";y;z;1e-10]}'[df_x;df_actual;df_expected];
+
+  / Test pf
+  pf_data:df_data`pf;
+  pf_x:pf_data`x;
+  pf_expected:pf_data`y;
+  pf_actual:.dist.pf[pf_x;df1;df2];
+  {.tst.assert_approx["pf(x=",string[x],")";y;z;1e-10]}'[pf_x;pf_actual;pf_expected];
+
+  / Test qf
+  qf_data:df_data`qf;
+  qf_p:qf_data`p;
+  qf_expected:qf_data`y;
+  qf_actual:.dist.qf[qf_p;df1;df2];
+  / 1e-6 matches qt/qchisq tolerances and the plan's quantile-accuracy spec
+  / (1e-6 central, ~4e-6 extreme tails). The residual at p=0.99, df=(1,1)
+  / propagates from betainc precision near z=1 (Wave 1 limitation).
+  {.tst.assert_approx["qf(p=",string[x],")";y;z;1e-6]}'[qf_p;qf_actual;qf_expected];
+ };
+
+test_f_df each `df_1_1`df_5_2`df_5_10`df_10_10`df_20_20;
+
+/=============================================================================
+/ UNIFORM DISTRIBUTION TESTS
+/=============================================================================
+
+-1 "\n--- Uniform Distribution Tie-Out Tests ---";
+
+unif_ref:ref`uniform;
+
+/ Test dunif (0,1)
+-1 "\nTesting .dist.dunif (0,1):";
+dunif_data:unif_ref`dunif_01;
+dunif_x:dunif_data`x;
+dunif_a:dunif_data`a;
+dunif_b:dunif_data`b;
+dunif_expected:dunif_data`y;
+dunif_actual:.dist.dunif[dunif_x;dunif_a;dunif_b];
+{.tst.assert_approx["dunif(x=",string[x],")";y;z;1e-10]}'[dunif_x;dunif_actual;dunif_expected];
+
+/ Test punif (0,1)
+-1 "\nTesting .dist.punif (0,1):";
+punif_data:unif_ref`punif_01;
+punif_x:punif_data`x;
+punif_a:punif_data`a;
+punif_b:punif_data`b;
+punif_expected:punif_data`y;
+punif_actual:.dist.punif[punif_x;punif_a;punif_b];
+{.tst.assert_approx["punif(x=",string[x],")";y;z;1e-10]}'[punif_x;punif_actual;punif_expected];
+
+/ Test qunif (0,1)
+-1 "\nTesting .dist.qunif (0,1):";
+qunif_data:unif_ref`qunif_01;
+qunif_p:qunif_data`p;
+qunif_a:qunif_data`a;
+qunif_b:qunif_data`b;
+qunif_expected:qunif_data`y;
+qunif_actual:.dist.qunif[qunif_p;qunif_a;qunif_b];
+{.tst.assert_approx["qunif(p=",string[x],")";y;z;1e-10]}'[qunif_p;qunif_actual;qunif_expected];
+
+/ Test dunif (custom range 5,10)
+-1 "\nTesting .dist.dunif (5,10):";
+dunif_c:unif_ref`dunif_custom;
+dunif_c_x:dunif_c`x;
+dunif_c_a:dunif_c`a;
+dunif_c_b:dunif_c`b;
+dunif_c_expected:dunif_c`y;
+dunif_c_actual:.dist.dunif[dunif_c_x;dunif_c_a;dunif_c_b];
+{.tst.assert_approx["dunif(x=",string[x],", a=5, b=10)";y;z;1e-10]}'[dunif_c_x;dunif_c_actual;dunif_c_expected];

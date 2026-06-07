@@ -11,7 +11,10 @@
 .tst.failures:();
 
 .tst.assert_approx:{[nm;actual;expected;tol]
-  ok:all (tol>abs actual-expected) | (actual=expected);
+  / Guard against null/NaN: q treats 0n as smaller than any float, so without
+  / this check `tol>abs(actual-expected)` is vacuously true and NaN passes.
+  has_null:any null actual;
+  ok:(not has_null) and all (tol>abs actual-expected) | (actual=expected);
   $[ok;
     [.tst.pass+:1; -1 "  PASS: ",nm];
     [.tst.fail+:1; .tst.failures,:enlist nm; -1 "  FAIL: ",nm," actual=",(string actual)," expected=",string expected]
@@ -43,7 +46,11 @@ if[not ref_exists; -1 "WARNING: Reference files not found. Run: cd tests/referen
 / Load tie-out tests (system commands must be at top level, not in if)
 \l tests/tieout/test_special.q
 \l tests/tieout/test_distributions.q
+\l tests/tieout/test_descriptive.q
 \l tests/unit/test_linalg.q
+\l tests/unit/test_validation.q
+\l tests/unit/test_random_variates.q
+\l tests/unit/test_descriptive_extras.q
 
 / Summary
 -1 "\n============================================================";

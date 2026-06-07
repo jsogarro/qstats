@@ -25,6 +25,7 @@ docs-site/*.pid
 
 # AI artifacts (never commit)
 ai/
+CLAUDE.md
 
 # Logs
 *.log

@@ -50,34 +50,29 @@
   /
   / Apply reflection formula for z < 0.5
   / lgamma(z) = ln(pi) - ln(|sin(pi*z)|) - lgamma(1-z)
-  reflection_term:(log .special.PI) - (log abs sin .special.PI*zz_adj) - result;
+  / Note: q's `-` is right-associative, so a - b - c parses as a - (b - c).
+  / Parenthesise the first subtraction to get the intended (a - b) - c.
+  reflection_term:((log .special.PI) - (log abs sin .special.PI*zz_adj)) - result;
   final:?[use_reflection;reflection_term;result];
   / Apply recurrence correction
   final+recur_corr
  };
 
-/ @desc Regularized incomplete beta function I_x(a,b) via Lentz continued fraction
-/ @param xx:float — upper limit of integration (0 <= x <= 1)
+/ @desc Regularized incomplete beta function I_x(a,b) via Lentz continued fraction.
+/ Helper for .special.betainc. Use the dispatcher (.special.betainc) directly
+/ unless you have a specific reason; this helper assumes the caller has already
+/ applied symmetry so the relevant x is in the smaller half.
+/ @param xx:float — upper limit (0 < x < 1)
 / @param aa:float — shape parameter a > 0
 / @param bb:float — shape parameter b > 0
 / @return float — I_x(a,b)
-.special.betainc:{[xx;aa;bb]
-  / Edge cases
-  if[xx<=0f; :0f];
-  if[xx>=1f; :1f];
-  /
-  / Use symmetry for better convergence
-  / If x > (a+1)/(a+b+2), compute 1 - I_{1-x}(b,a)
-  if[xx>(aa+1)%(aa+bb+2); :1-.special.betainc[1-xx;bb;aa]];
-  /
+.special.betainc_cf:{[xx;aa;bb]
   / Front factor: x^a * (1-x)^b / B(a,b)
-  / ln(front) = a*ln(x) + b*ln(1-x) + lgamma(a+b) - lgamma(a) - lgamma(b)
   lnfront:(aa*log[xx])+(bb*log[1-xx]);
   lnfront:lnfront+.special.lgamma[aa+bb];
   lnfront:lnfront-.special.lgamma[aa];
   lnfront:lnfront-.special.lgamma[bb];
   front:exp lnfront;
-  /
   / Continued fraction via Lentz's method
   / The CF is: 1/(1+ d1/(1+ d2/(1+ d3/(1+ ...))))
   / where d_{2m} = m*(b-m)*x / ((a+2m-1)*(a+2m))
@@ -86,10 +81,8 @@
   ff:1f;
   cc:1f;
   dd:0f;
-  /
   ii:1;
   while[ii<=200;
-    / Compute d_m coefficient
     mm:ii div 2;
     dm:$[0=ii mod 2;
       / Even: d_{2m} = m*(b-m)*x / ((a+2m-1)*(a+2m))
@@ -97,7 +90,6 @@
       / Odd: d_{2m+1} = -(a+m)*(a+b+m)*x / ((a+2m)*(a+2m+1))
       (neg (aa+mm)*(aa+bb+mm)*xx) % ((aa+ii-1)*(aa+ii))
     ];
-    /
     dd:1+dm*dd;
     if[(abs dd)<tiny; dd:tiny];
     dd:1%dd;
@@ -105,11 +97,59 @@
     if[(abs cc)<tiny; cc:tiny];
     delta:cc*dd;
     ff:ff*delta;
-    if[1e-12>abs delta-1; ii:201];  / converged
+    if[1e-12>abs delta-1; ii:201];
     ii+:1;
   ];
-  /
   front%(aa*ff)
+ };
+
+/ @desc Regularized incomplete beta via power series. Numerically stable for
+/ small parameters and x in the small half of [0, 1] where the Lentz CF
+/ collapses (mixing positive/negative terms with poor cancellation).
+/ Identity: I_x(a,b) = (x^a (1-x)^b / (a B(a,b))) * 2F1(a+b, 1; a+1; x)
+/ Hypergeometric series: sum_{k=0}^inf (a+b)_k/(a+1)_k * x^k with term
+/ recurrence t_k = t_{k-1} * (a+b+k-1)/(a+k) * x.
+/ Geometric convergence ratio approaches x, so x <= 0.5 ensures convergence
+/ within 50 iters at 1e-15 precision.
+.special.betainc_series:{[xx;aa;bb]
+  / Front factor: x^a * (1-x)^b / (a * B(a,b)).
+  lnfront:(aa*log[xx])+(bb*log[1f-xx]);
+  lnfront+:.special.lgamma[aa+bb];
+  lnfront-:log[aa];
+  lnfront-:.special.lgamma[aa];
+  lnfront-:.special.lgamma[bb];
+  front:exp lnfront;
+  s:1f;
+  term:1f;
+  k:1;
+  while[k<200;
+    term*:((aa+bb+k-1f)%(aa+k))*xx;
+    s+:term;
+    if[(abs term)<1e-15*abs s; k:200];
+    k+:1;
+  ];
+  front*s
+ };
+
+/ @desc Regularized incomplete beta function I_x(a,b).
+/ Dispatcher: applies the (1-x, b, a) symmetry to keep x in the smaller half,
+/ then picks the power series (numerically stable for small parameters and
+/ small x) or the Lentz CF based on Cephes' standard gate (b*x <= 1 AND
+/ x <= 0.5). The earlier impl used CF unconditionally, which lost precision
+/ for a, b <= 0.5 -- producing non-monotone outputs visible at a=b=0.1.
+/ @param xx:float — upper limit (0 <= x <= 1)
+/ @param aa:float — shape parameter a > 0
+/ @param bb:float — shape parameter b > 0
+/ @return float — I_x(a,b)
+.special.betainc:{[xx;aa;bb]
+  if[xx<=0f; :0f];
+  if[xx>=1f; :1f];
+  if[xx>(aa+1)%(aa+bb+2); :1f-.special.betainc[1f-xx;bb;aa]];
+  / Note: ((bb*xx)<=1f), not (bb*xx<=1f) — q right-to-left would otherwise
+  / parse the latter as `bb * (xx<=1f)`, multiplying by a bool.
+  $[((bb*xx)<=1f) and xx<=0.5;
+    .special.betainc_series[xx;aa;bb];
+    .special.betainc_cf[xx;aa;bb]]
  };
 
 / @desc Regularized incomplete gamma P(a,x) - Series expansion helper
