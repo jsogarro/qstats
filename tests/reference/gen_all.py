@@ -181,9 +181,148 @@ def gen_linalg():
     print(f"  linalg.json: 4x4 matrix ops + 3x3 solve")
 
 
+def gen_descriptive():
+    """Generate reference values for descriptive statistics (Wave 3)."""
+    rng = np.random.default_rng(42)
+    x_small = [1.0, 2.0, 3.0, 4.0, 5.0]
+    x_med = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+    x_mixed = [3.5, 1.2, 7.8, -2.4, 5.5, 0.0, 9.1, 4.2]
+    x_skew = [1.0, 2.0, 3.0, 4.0, 10.0]
+    x_norm = rng.standard_normal(500).tolist()
+
+    cor_x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    cor_y_pos = [2.0, 4.0, 6.0, 8.0, 10.0]
+    cor_y_neg = [10.0, 8.0, 6.0, 4.0, 2.0]
+    cor_y_nonlin = [1.0, 4.0, 9.0, 16.0, 25.0]
+    x_noise = rng.standard_normal(100).tolist()
+    y_noise = (np.array(x_noise) * 0.7 + rng.standard_normal(100) * 0.3).tolist()
+
+    X_mat = rng.standard_normal((50, 3)).tolist()
+
+    data = {}
+
+    data["mean"] = [
+        {"x": x_small, "expected": float(np.mean(x_small))},
+        {"x": x_mixed, "expected": float(np.mean(x_mixed))},
+        {"x": x_norm, "expected": float(np.mean(x_norm))},
+    ]
+
+    data["median"] = [
+        {"x": x_small, "expected": float(np.median(x_small))},
+        {"x": x_med, "expected": float(np.median(x_med))},
+        {"x": x_mixed, "expected": float(np.median(x_mixed))},
+    ]
+
+    data["mode"] = [
+        {"x": [1.0, 2.0, 2.0, 3.0, 3.0, 3.0], "expected": [3.0]},
+        {"x": [1.0, 1.0, 2.0, 2.0, 3.0], "expected": [1.0, 2.0]},
+        {"x": [5.0, 5.0, 5.0, 1.0, 2.0], "expected": [5.0]},
+    ]
+
+    data["trimmed_mean"] = [
+        {"x": x_med, "trim": 0.0, "expected": float(st.trim_mean(x_med, 0.0))},
+        {"x": x_med, "trim": 0.1, "expected": float(st.trim_mean(x_med, 0.1))},
+        {"x": x_med, "trim": 0.2, "expected": float(st.trim_mean(x_med, 0.2))},
+        {"x": x_norm, "trim": 0.1, "expected": float(st.trim_mean(x_norm, 0.1))},
+    ]
+
+    data["quantile"] = [
+        {"x": x_med, "p": 0.0, "expected": float(np.quantile(x_med, 0.0))},
+        {"x": x_med, "p": 0.25, "expected": float(np.quantile(x_med, 0.25))},
+        {"x": x_med, "p": 0.5, "expected": float(np.quantile(x_med, 0.5))},
+        {"x": x_med, "p": 0.75, "expected": float(np.quantile(x_med, 0.75))},
+        {"x": x_med, "p": 1.0, "expected": float(np.quantile(x_med, 1.0))},
+        {"x": x_norm, "p": 0.1, "expected": float(np.quantile(x_norm, 0.1))},
+        {"x": x_norm, "p": 0.9, "expected": float(np.quantile(x_norm, 0.9))},
+    ]
+
+    data["percentile"] = [
+        {"x": x_med, "p": 25.0, "expected": float(np.percentile(x_med, 25))},
+        {"x": x_med, "p": 50.0, "expected": float(np.percentile(x_med, 50))},
+        {"x": x_med, "p": 75.0, "expected": float(np.percentile(x_med, 75))},
+    ]
+
+    data["var"] = [
+        {"x": x_small, "expected": float(np.var(x_small, ddof=1))},
+        {"x": x_mixed, "expected": float(np.var(x_mixed, ddof=1))},
+        {"x": x_norm, "expected": float(np.var(x_norm, ddof=1))},
+    ]
+
+    data["sd"] = [
+        {"x": x_small, "expected": float(np.std(x_small, ddof=1))},
+        {"x": x_mixed, "expected": float(np.std(x_mixed, ddof=1))},
+        {"x": x_norm, "expected": float(np.std(x_norm, ddof=1))},
+    ]
+
+    data["iqr"] = [
+        {"x": x_med, "expected": float(st.iqr(x_med))},
+        {"x": x_norm, "expected": float(st.iqr(x_norm))},
+    ]
+
+    data["mad"] = [
+        {"x": x_med, "expected": float(st.median_abs_deviation(x_med, scale="normal"))},
+        {"x": x_norm, "expected": float(st.median_abs_deviation(x_norm, scale="normal"))},
+    ]
+
+    data["cv"] = [
+        {"x": x_small, "expected": float(np.std(x_small, ddof=1) / abs(np.mean(x_small)))},
+        {"x": x_med, "expected": float(np.std(x_med, ddof=1) / abs(np.mean(x_med)))},
+    ]
+
+    data["skewness"] = [
+        {"x": x_med, "expected": float(st.skew(x_med, bias=False))},
+        {"x": x_skew, "expected": float(st.skew(x_skew, bias=False))},
+        {"x": x_norm, "expected": float(st.skew(x_norm, bias=False))},
+    ]
+
+    data["kurtosis"] = [
+        {"x": x_med + x_med, "expected": float(st.kurtosis(x_med + x_med, bias=False, fisher=True))},
+        {"x": x_norm, "expected": float(st.kurtosis(x_norm, bias=False, fisher=True))},
+    ]
+
+    data["cor"] = [
+        {"x": cor_x, "y": cor_y_pos, "expected": 1.0},
+        {"x": cor_x, "y": cor_y_neg, "expected": -1.0},
+        {"x": x_noise, "y": y_noise, "expected": float(st.pearsonr(x_noise, y_noise).statistic)},
+    ]
+
+    data["spearman"] = [
+        {"x": cor_x, "y": cor_y_nonlin, "expected": 1.0},
+        {"x": x_noise, "y": y_noise, "expected": float(st.spearmanr(x_noise, y_noise).statistic)},
+    ]
+
+    data["kendall"] = [
+        {"x": cor_x, "y": cor_y_pos, "expected": 1.0},
+        {"x": x_noise[:30], "y": y_noise[:30],
+         "expected": float(st.kendalltau(x_noise[:30], y_noise[:30]).statistic)},
+    ]
+
+    data["cov"] = [
+        {"x": cor_x, "y": cor_y_pos, "expected": float(np.cov(cor_x, cor_y_pos, ddof=1)[0, 1])},
+        {"x": x_noise, "y": y_noise, "expected": float(np.cov(x_noise, y_noise, ddof=1)[0, 1])},
+    ]
+
+    Xm = np.array(X_mat)
+    data["cov_matrix"] = {
+        "X": X_mat,
+        "expected": np.cov(Xm, rowvar=False, ddof=1).tolist(),
+    }
+
+    data["cor_matrix"] = {
+        "X": X_mat,
+        "expected": np.corrcoef(Xm, rowvar=False).tolist(),
+    }
+
+    with open("descriptive.json", "w") as f:
+        json.dump(data, f, indent=2)
+    n_cases = sum(len(v) if isinstance(v, list) else 1 for v in data.values())
+    print(f"  descriptive.json: {n_cases} test groups across {len(data)} functions")
+
+
 if __name__ == "__main__":
     print("Generating qstats reference values...")
     gen_special()
     gen_distributions()
     gen_linalg()
+    gen_descriptive()
     print("Done. All reference JSON files generated.")

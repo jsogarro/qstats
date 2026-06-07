@@ -46,9 +46,11 @@ if[not ref_exists; -1 "WARNING: Reference files not found. Run: cd tests/referen
 / Load tie-out tests (system commands must be at top level, not in if)
 \l tests/tieout/test_special.q
 \l tests/tieout/test_distributions.q
+\l tests/tieout/test_descriptive.q
 \l tests/unit/test_linalg.q
 \l tests/unit/test_validation.q
 \l tests/unit/test_random_variates.q
+\l tests/unit/test_descriptive_extras.q
 
 / Summary
 -1 "\n============================================================";
