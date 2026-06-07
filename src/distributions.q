@@ -200,10 +200,12 @@
   .dist.validate[nn>=0;"n must be non-negative"];
   .dist.validate[(-7h=type nn)|(-6h=type nn);"n must be integer type"];
   .dist.validate[df>0f;"df must be positive"];
-  / Generate df × nn standard normals, square and sum across each sample
-  z:.dist.rnorm[df*nn;0f;1f];
+  / Generate df × nn standard normals, square and sum across each sample.
+  / df is cast to long: the sum-of-squared-normals algorithm requires integer df.
+  k:`long$df;
+  z:.dist.rnorm[k*nn;0f;1f];
   z2:z*z;
-  sum each (nn;df)#z2
+  sum each (nn;k)#z2
  };
 
 /=============================================================================
@@ -314,12 +316,30 @@
   .dist.validate[(p>0f)&p<1f;"p must be in (0,1)"];
   .dist.validate[df1>0f;"df1 must be positive"];
   .dist.validate[df2>0f;"df2 must be positive"];
-  / Initial guess: ratio of chi-squared quantiles
+  / Bracket [lo, hi] containing the quantile. pf is monotone on (0, inf).
+  / The earlier impl used unsafeguarded Newton-Raphson which diverged for tail
+  / probabilities (e.g. p=0.95 at df=(5,10)) because pdf collapses in the tails
+  / and the step x - fx/fpx overshoots into negative territory, returning 0n.
+  lo:1e-12f;
+  hi:1e6f;
+  bk:0;
+  while[(bk<10) and .dist.pf[hi;df1;df2]<p;
+    hi*:100f;
+    bk+:1];
+  / Initial guess from chi-sq ratio; fall back to bracket midpoint if outside.
   x:(.dist.qchisq_scalar[p;df1]%df1)%.dist.qchisq_scalar[1f-p;df2]%df2;
-  / Newton-Raphson iterations
-  i:0; maxiter:50; tol:1e-10;
-  while[(i<maxiter) and tol<abs fx:.dist.pf[x;df1;df2]-p;
-    x:x-(fx%.dist.df[x;df1;df2]);
+  if[(x<=lo) or x>=hi; x:0.5*lo+hi];
+  / Safeguarded Newton-Raphson: accept Newton step only if it stays inside the
+  / current bracket; otherwise bisect. Bisection guarantees convergence;
+  / Newton accelerates near the root.
+  i:0; maxiter:80; tol:1e-12;
+  while[(i<maxiter) and (hi-lo)>tol;
+    fx:.dist.pf[x;df1;df2]-p;
+    if[tol>abs fx; :x];
+    $[fx<0f; lo:x; hi:x];
+    fpx:.dist.df[x;df1;df2];
+    nx:x-fx%fpx;
+    x:$[(not null nx) and (nx>lo) and nx<hi; nx; 0.5*lo+hi];
     i+:1];
   x
  };
