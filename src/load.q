@@ -22,6 +22,11 @@
 -1 "    .dist.{d|p|q|r}t            — Student's t distribution";
 -1 "    .dist.{d|p|q|r}f            — F distribution";
 -1 "    .dist.{d|p|q|r}unif         — uniform distribution";
+-1 "    .dist.{d|p|q|r}beta         — beta distribution";
+-1 "    .dist.{d|p|q|r}gamma        — gamma distribution (shape, rate)";
+-1 "    .dist.{d|p|q|r}binom        — binomial distribution";
+-1 "    .dist.{d|p|q|r}pois         — Poisson distribution";
+-1 "    .dist.{d|p|q|r}exp          — exponential distribution (rate)";
 -1 "  Descriptive statistics:";
 -1 "    .desc.{mean,median,mode,trimmed_mean}";
 -1 "    .desc.{var,sd,iqr,mad,cv}";
