@@ -87,16 +87,40 @@
   (inv aa) mmu bb
  };
 
-/ @desc Condition number of a matrix
-/ @param mat:float[][] — input matrix
-/ @return float — condition number (ratio of max/min singular values)
+/ @desc Power iteration: largest eigenvalue (in absolute value) of A.
+/ For symmetric A (in particular A^T A), returns the dominant eigenvalue.
+.la.power_iter:{[A;maxiter;tol]
+  n:count A;
+  v:`float$1+til n;
+  v%:sqrt sum v*v;
+  lam:0f;
+  i:0;
+  while[i<maxiter;
+    vn:A mmu v;
+    lam_new:sqrt sum vn*vn;
+    vn%:lam_new;
+    if[tol>abs lam_new-lam; i:maxiter];
+    lam:lam_new;
+    v:vn;
+    i+:1];
+  lam
+ };
+
+/ @desc 2-norm condition number: sigma_max / sigma_min.
+/ Computed via power iteration on M = A^T A (whose eigenvalues are the squared
+/ singular values of A): sigma_max = sqrt(lambda_max(M)),
+/ sigma_min = sqrt(1 / lambda_max(M^-1)).
+/ The earlier impl used Frobenius cond (||A||_F * ||A^-1||_F), which is a
+/ different metric. 2-norm cond is what numpy/scipy/MATLAB return when called
+/ without a norm argument and is the standard convention.
+/ @param mat:float[][] — input matrix (square, invertible)
+/ @return float — 2-norm condition number
 .la.cond:{[mat]
-  / Condition number = ||A|| * ||inv(A)||
-  / Use Frobenius norm: sqrt(sum(A^2))
-  norm_a:sqrt sum raze mat*mat;
-  inv_mat:inv mat;
-  norm_inv:sqrt sum raze inv_mat*inv_mat;
-  norm_a*norm_inv
+  M:"f"$(flip mat) mmu mat;
+  lam_max:.la.power_iter[M;500;1e-14];
+  Minv:"f"$inv M;
+  lam_max_inv:.la.power_iter[Minv;500;1e-14];
+  sqrt lam_max*lam_max_inv
  };
 
 / @desc Cross-product X'X (efficiently)

@@ -18,8 +18,13 @@ def gen_special():
     """Generate reference values for special functions."""
     data = {}
 
-    # Log-gamma
-    x_lgamma = [0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 10.0, 50.0, 100.0, 0.01, 0.001]
+    # Log-gamma. Cover (0.1, 0.5) explicitly: the prior reference set jumped
+    # 0.01 -> 0.5, leaving the reflection path (used for 0.1 < z < 0.5)
+    # untested. That gap masked the right-associative subtraction bug in the
+    # reflection formula until the Wave 3 betainc(a=b=0.1) failures forced a
+    # closer look.
+    x_lgamma = [0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 10.0, 50.0, 100.0,
+                0.01, 0.001, 0.1, 0.2, 0.3, 0.4, 0.45, 0.49]
     data["lgamma"] = {
         "inputs": {"x": x_lgamma},
         "outputs": {"y": [float(sp.gammaln(x)) for x in x_lgamma]}

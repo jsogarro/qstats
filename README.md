@@ -67,7 +67,7 @@ qstats targets parity with scipy/R reference implementations, validated by an au
 
 | Function class | Tolerance vs scipy | Notes |
 |---|---|---|
-| Special functions (`lgamma`, `gammainc`, `betainc`) | 1e-10 absolute | Edge case: `betainc` with `a, b ≤ 0.1` falls back to ~1e-4 — small-parameter series fallback is on the roadmap. |
+| Special functions (`lgamma`, `gammainc`, `betainc`) | 1e-10 absolute | `betainc` dispatches to a power-series branch for small parameters (Cephes-style gate `b·x ≤ 1 ∧ x ≤ 0.5`) and Lentz CF otherwise; both validated to 1e-10 across all reference cases. |
 | PDFs (`dnorm`, `dchisq`, `dt`, `df`, `dunif`) | 1e-10 absolute | Log-domain computation throughout. |
 | CDFs (`pnorm`, `pchisq`, `pt`, `pf`, `punif`) | 1e-10 absolute | Built on regularized incomplete beta/gamma. |
 | Quantile functions (`qchisq`, `qt`, `qf`) | **1e-6 absolute** in central region | Newton-Raphson inversion. **At extreme tails (p ≤ 0.01 or p ≥ 0.99) accumulated NR error is up to ~4e-6.** scipy/R use higher-order methods (Halley, table-driven asymptotics) and reach ~1e-12 here; matching that is on the roadmap. |
@@ -75,7 +75,6 @@ qstats targets parity with scipy/R reference implementations, validated by an au
 | Random variates (`rnorm`, `rchisq`, `rt`, `rf`, `runif`) | Distributional (large-n moments match) | Box-Muller, transformation method. |
 
 ### Known precision floors
-- **`betainc(0.1, 0.1, x)`** — series convergence near the corner; 9 reference points fail at the 1e-10 tolerance. Tracked for the special-functions revisit.
 - **`qchisq` / `qt` at p ∈ {0.01, 0.99}** — NR converges to ~1e-6, not 1e-10. Tolerance widened in the corresponding tieout tests; absolute error is documented per call site.
 
 If you need scipy-grade quantile accuracy at extreme tails, consult scipy directly via `embedPy` — qstats does not yet match it there.
