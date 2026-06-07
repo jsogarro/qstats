@@ -684,6 +684,91 @@ def gen_diagnostics():
     print(f"  diagnostics.json: 1 dataset + {len(data) - 1} diagnostic groups")
 
 
+def gen_dist_extra():
+    """Generate reference values for Wave 7 additional distributions."""
+    data = {}
+
+    # ---------- Beta ----------
+    beta_params = [(0.5, 0.5), (2.0, 5.0), (5.0, 2.0), (2.0, 2.0)]
+    x_beta = [0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95]
+    p_beta = [0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.99]
+    beta_groups = {}
+    for a, b in beta_params:
+        key = f"a{a}_b{b}"
+        beta_groups[key] = {
+            "alpha": a, "beta": b,
+            "dbeta": {"x": x_beta, "y": [float(st.beta.pdf(x, a, b)) for x in x_beta]},
+            "pbeta": {"x": x_beta, "y": [float(st.beta.cdf(x, a, b)) for x in x_beta]},
+            "qbeta": {"p": p_beta, "y": [float(st.beta.ppf(p, a, b)) for p in p_beta]},
+        }
+    data["beta"] = beta_groups
+
+    # ---------- Gamma (shape-rate; scipy uses scale = 1/rate) ----------
+    gamma_params = [(1.0, 1.0), (2.0, 0.5), (5.0, 1.0), (0.5, 2.0)]
+    x_gamma = [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
+    p_gamma = [0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99]
+    gamma_groups = {}
+    for a, b in gamma_params:
+        key = f"a{a}_b{b}"
+        scale = 1.0 / b
+        gamma_groups[key] = {
+            "alpha": a, "beta": b,
+            "dgamma": {"x": x_gamma, "y": [float(st.gamma.pdf(x, a, scale=scale)) for x in x_gamma]},
+            "pgamma": {"x": x_gamma, "y": [float(st.gamma.cdf(x, a, scale=scale)) for x in x_gamma]},
+            "qgamma": {"p": p_gamma, "y": [float(st.gamma.ppf(p, a, scale=scale)) for p in p_gamma]},
+        }
+    data["gamma"] = gamma_groups
+
+    # ---------- Binomial ----------
+    binom_params = [(10, 0.5), (20, 0.3), (50, 0.1), (100, 0.5)]
+    binom_groups = {}
+    for n, p in binom_params:
+        ks = list(range(0, n + 1, max(1, n // 10)))
+        ps = [0.01, 0.1, 0.5, 0.9, 0.99]
+        binom_groups[f"n{n}_p{p}"] = {
+            "n": n, "p": p,
+            "dbinom": {"k": ks, "y": [float(st.binom.pmf(k, n, p)) for k in ks]},
+            "pbinom": {"k": ks, "y": [float(st.binom.cdf(k, n, p)) for k in ks]},
+            "qbinom": {"prob": ps, "y": [int(st.binom.ppf(p2, n, p)) for p2 in ps]},
+        }
+    data["binom"] = binom_groups
+
+    # ---------- Poisson ----------
+    pois_lams = [0.5, 1.0, 3.0, 10.0, 50.0]
+    pois_groups = {}
+    for lam in pois_lams:
+        ks = list(range(0, max(10, int(3 * lam) + 1)))
+        ps = [0.01, 0.1, 0.5, 0.9, 0.99]
+        pois_groups[f"lam{lam}"] = {
+            "lambda": lam,
+            "dpois": {"k": ks, "y": [float(st.poisson.pmf(k, lam)) for k in ks]},
+            "ppois": {"k": ks, "y": [float(st.poisson.cdf(k, lam)) for k in ks]},
+            "qpois": {"p": ps, "y": [int(st.poisson.ppf(p, lam)) for p in ps]},
+        }
+    data["poisson"] = pois_groups
+
+    # ---------- Exponential ----------
+    exp_rates = [0.5, 1.0, 2.0, 5.0]
+    x_exp = [0.1, 0.5, 1.0, 2.0, 5.0]
+    p_exp = [0.01, 0.1, 0.5, 0.9, 0.99]
+    exp_groups = {}
+    for rate in exp_rates:
+        scale = 1.0 / rate
+        exp_groups[f"rate{rate}"] = {
+            "rate": rate,
+            "dexp": {"x": x_exp, "y": [float(st.expon.pdf(x, scale=scale)) for x in x_exp]},
+            "pexp": {"x": x_exp, "y": [float(st.expon.cdf(x, scale=scale)) for x in x_exp]},
+            "qexp": {"p": p_exp, "y": [float(st.expon.ppf(p, scale=scale)) for p in p_exp]},
+        }
+    data["expon"] = exp_groups
+
+    with open("dist_extra.json", "w") as f:
+        json.dump(data, f, indent=2)
+    n_dists = len(data)
+    n_groups = sum(len(g) for g in data.values())
+    print(f"  dist_extra.json: {n_groups} groups across {n_dists} distributions")
+
+
 if __name__ == "__main__":
     print("Generating qstats reference values...")
     gen_special()
@@ -693,4 +778,5 @@ if __name__ == "__main__":
     gen_htest()
     gen_nonparam()
     gen_diagnostics()
+    gen_dist_extra()
     print("Done. All reference JSON files generated.")

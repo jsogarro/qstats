@@ -406,3 +406,273 @@
   .dist.validate[b>a;"b must be greater than a"];
   a+(b-a)*nn?1f
  };
+
+/=============================================================================
+/ Wave 7 distributions: beta, gamma, binomial, Poisson, exponential.
+/ Parameter names `aa`/`bb` (etc.) avoid clashes with q builtins. Quantile
+/ functions follow the scalar/vector dispatch pattern from Waves 1-2.
+/=============================================================================
+
+/=============================================================================
+/ BETA DISTRIBUTION
+/=============================================================================
+
+/ Beta PDF: x^(a-1) (1-x)^(b-1) / B(a, b)
+.dist.dbeta:{[xx;aa;bb]
+  .dist.validate[(aa>0f) and bb>0f;"alpha and beta must be positive"];
+  / Log space to avoid overflow for extreme params
+  lnbeta:(.special.lgamma aa)+(.special.lgamma bb)-.special.lgamma aa+bb;
+  lnf:((aa-1f)*log xx)+((bb-1f)*log 1f-xx)-lnbeta;
+  exp lnf
+ };
+
+/ Beta CDF: I_x(a, b), the regularized incomplete beta function.
+.dist.pbeta:{[xx;aa;bb]
+  .dist.validate[(aa>0f) and bb>0f;"alpha and beta must be positive"];
+  .special.betainc[;aa;bb] each xx
+ };
+
+/ Beta quantile. Safeguarded Newton-Raphson with bisection fallback on [0, 1].
+.dist.qbeta_scalar:{[p;aa;bb]
+  .dist.validate[(p>0f) and p<1f;"p must be in (0, 1)"];
+  .dist.validate[(aa>0f) and bb>0f;"alpha and beta must be positive"];
+  lo:1e-15;
+  hi:1f-1e-15;
+  / Mean as initial guess
+  x:aa%aa+bb;
+  if[(x<=lo) or x>=hi; x:0.5*lo+hi];
+  i:0; maxiter:80; tol:1e-13;
+  while[(i<maxiter) and (hi-lo)>tol;
+    fx:.special.betainc[x;aa;bb]-p;
+    if[tol>abs fx; :x];
+    $[fx<0f; lo:x; hi:x];
+    fpx:.dist.dbeta[x;aa;bb];
+    nx:x-fx%fpx;
+    x:$[(not null nx) and (nx>lo) and nx<hi; nx; 0.5*lo+hi];
+    i+:1];
+  x
+ };
+.dist.qbeta:{[pp;aa;bb] .dist.qbeta_scalar[;aa;bb] each pp};
+
+/ Beta random variates via ratio Y1 / (Y1 + Y2), Y1 ~ Gamma(a, 1), Y2 ~ Gamma(b, 1).
+.dist.rbeta:{[nn;aa;bb]
+  .dist.validate[nn>=0;"n must be non-negative"];
+  .dist.validate[(-7h=type nn)|(-6h=type nn);"n must be integer type"];
+  .dist.validate[(aa>0f) and bb>0f;"alpha and beta must be positive"];
+  y1:.dist.rgamma[nn;aa;1f];
+  y2:.dist.rgamma[nn;bb;1f];
+  y1%y1+y2
+ };
+
+/=============================================================================
+/ GAMMA DISTRIBUTION (shape-rate parameterisation)
+/=============================================================================
+
+/ Gamma PDF (shape a, rate b): b^a / Gamma(a) * x^(a-1) * exp(-b*x).
+.dist.dgamma:{[xx;aa;bb]
+  .dist.validate[(aa>0f) and bb>0f;"alpha and beta must be positive"];
+  lnf:((aa*log bb)-.special.lgamma aa)+((aa-1f)*log xx)-bb*xx;
+  exp lnf
+ };
+
+/ Gamma CDF: P(a, b*x), the lower regularized incomplete gamma.
+.dist.pgamma:{[xx;aa;bb]
+  .dist.validate[(aa>0f) and bb>0f;"alpha and beta must be positive"];
+  .special.gammainc[aa;] each bb*xx
+ };
+
+/ Gamma quantile. Safeguarded Newton-Raphson with bisection fallback (same
+/ shape as qf_scalar) because naive NR diverges in the tails. Initial guess
+/ via Wilson-Hilferty: x_init = a/b * (1 - 1/(9a) + z*sqrt(1/(9a)))^3.
+.dist.qgamma_scalar:{[p;aa;bb]
+  .dist.validate[(p>0f) and p<1f;"p must be in (0, 1)"];
+  .dist.validate[(aa>0f) and bb>0f;"alpha and beta must be positive"];
+  lo:1e-15;
+  hi:1e6*aa%bb;
+  bk:0;
+  while[(bk<10) and .special.gammainc[aa;bb*hi]<p;
+    hi*:100f;
+    bk+:1];
+  / Wilson-Hilferty initial guess (matches qchisq's pattern)
+  z:.dist.qnorm[p;0f;1f];
+  c:1f%9f*aa;
+  wh_factor:(1f-c)+z*sqrt c;
+  x:(aa%bb)*wh_factor xexp 3;
+  if[(x<=lo) or x>=hi; x:0.5*lo+hi];
+  i:0; maxiter:80; tol:1e-12;
+  while[(i<maxiter) and (hi-lo)>tol;
+    fx:.special.gammainc[aa;bb*x]-p;
+    if[tol>abs fx; :x];
+    $[fx<0f; lo:x; hi:x];
+    fpx:.dist.dgamma[x;aa;bb];
+    nx:x-fx%fpx;
+    x:$[(not null nx) and (nx>lo) and nx<hi; nx; 0.5*lo+hi];
+    i+:1];
+  x
+ };
+.dist.qgamma:{[pp;aa;bb] .dist.qgamma_scalar[;aa;bb] each pp};
+
+/ Gamma random variates via Marsaglia-Tsang (2000) for alpha >= 1; for
+/ alpha < 1 use the shape-boost X * U^(1/alpha) with X ~ Gamma(alpha+1).
+.dist.rgamma_scalar:{[aa;bb]
+  $[aa<1f;
+    [g_boost:.dist.rgamma_scalar[aa+1f;1f];
+     u:first 1?1f;
+     v:g_boost*xexp[u;1f%aa];
+     v%bb];
+    [d:aa-1f%3f;
+     c:1f%sqrt 9f*d;
+     accepted:0b;
+     result:0f;
+     while[not accepted;
+       z:first .dist.rnorm[1;0f;1f];
+       vv:xexp[1f+c*z;3];
+       if[vv>0f;
+         u:first 1?1f;
+         if[(log u)<((0.5*z*z)+d)-d*vv*1f-log vv;
+           accepted:1b;
+           result:d*vv]]];
+     result%bb]
+   ]
+ };
+.dist.rgamma:{[nn;aa;bb]
+  .dist.validate[nn>=0;"n must be non-negative"];
+  .dist.validate[(-7h=type nn)|(-6h=type nn);"n must be integer type"];
+  .dist.validate[(aa>0f) and bb>0f;"alpha and beta must be positive"];
+  .dist.rgamma_scalar[aa;bb] each til nn
+ };
+
+/=============================================================================
+/ BINOMIAL DISTRIBUTION
+/=============================================================================
+
+/ Binomial PMF in log space: C(n, k) * p^k * (1-p)^(n-k).
+.dist.dbinom:{[kk;nn;pp]
+  .dist.validate[nn>=0;"n must be non-negative"];
+  .dist.validate[(pp>=0f) and pp<=1f;"p must be in [0, 1]"];
+  lnbinom:(.special.lgamma 1f+nn)-(.special.lgamma 1f+kk)+.special.lgamma 1f+nn-kk;
+  / The above is wrong with right-assoc: rewrite as (.special.lgamma 1f+nn)
+  / minus the sum of the two other lgammas.
+  lnbinom:(.special.lgamma 1f+nn)-(.special.lgamma 1f+kk)+(.special.lgamma 1f+nn-kk);
+  / Still right-assoc; explicit parens:
+  lnbinom:((.special.lgamma 1f+nn)-(.special.lgamma 1f+kk))-(.special.lgamma 1f+nn-kk);
+  lnp:(kk*log pp)+(nn-kk)*log 1f-pp;
+  exp lnbinom+lnp
+ };
+
+/ Binomial CDF: I_{1-p}(n-k, k+1). betainc is scalar internally so we map
+/ over k.
+.dist.pbinom:{[kk;nn;pp]
+  .dist.validate[nn>=0;"n must be non-negative"];
+  .dist.validate[(pp>=0f) and pp<=1f;"p must be in [0, 1]"];
+  {[nn;pp;k] .special.betainc[1f-pp;nn-k;k+1f]}[nn;pp;] each kk
+ };
+
+/ Binomial quantile via binary search on CDF.
+.dist.qbinom_scalar:{[prob;nn;pp]
+  .dist.validate[(prob>=0f) and prob<=1f;"prob must be in [0, 1]"];
+  .dist.validate[nn>=0;"n must be non-negative"];
+  if[prob=0f; :0];
+  if[prob=1f; :`long$nn];
+  lo:0; hi:`long$nn;
+  while[lo<hi;
+    mid:(lo+hi) div 2;
+    $[.dist.pbinom[`float$mid;nn;pp]<prob;
+      lo:mid+1;
+      hi:mid]];
+  lo
+ };
+.dist.qbinom:{[probs;nn;pp] .dist.qbinom_scalar[;nn;pp] each probs};
+
+/ Binomial random variates: count successes in n Bernoulli trials per draw.
+.dist.rbinom:{[num;nn;pp]
+  .dist.validate[num>=0;"num must be non-negative"];
+  .dist.validate[(-7h=type num)|(-6h=type num);"num must be integer type"];
+  .dist.validate[nn>=0;"n must be non-negative"];
+  .dist.validate[(pp>=0f) and pp<=1f;"p must be in [0, 1]"];
+  k:`long$nn;
+  u:(num*k)?1f;
+  sum each (num;k)#u<pp
+ };
+
+/=============================================================================
+/ POISSON DISTRIBUTION
+/=============================================================================
+
+/ Poisson PMF: lambda^k * exp(-lambda) / k!, computed in log space.
+.dist.dpois:{[kk;lam]
+  .dist.validate[lam>0f;"lambda must be positive"];
+  lnp:((kk*log lam)-lam)-.special.lgamma 1f+kk;
+  exp lnp
+ };
+
+/ Poisson CDF: 1 - P(k+1, lambda). gammainc is scalar so we map over k.
+.dist.ppois:{[kk;lam]
+  .dist.validate[lam>0f;"lambda must be positive"];
+  {[lam;k] 1f-.special.gammainc[k+1f;lam]}[lam;] each kk
+ };
+
+/ Poisson quantile via binary search. Upper bound expands until pcheck >= p.
+.dist.qpois_scalar:{[p;lam]
+  .dist.validate[(p>=0f) and p<=1f;"p must be in [0, 1]"];
+  .dist.validate[lam>0f;"lambda must be positive"];
+  if[p=0f; :0];
+  / Expand `hi` until P(X <= hi) >= p
+  hi:`long$ceiling 4f*lam;
+  if[hi<10; hi:10];
+  while[.dist.ppois[`float$hi;lam]<p;
+    hi*:2];
+  lo:0;
+  while[lo<hi;
+    mid:(lo+hi) div 2;
+    $[.dist.ppois[`float$mid;lam]<p;
+      lo:mid+1;
+      hi:mid]];
+  lo
+ };
+.dist.qpois:{[pp;lam] .dist.qpois_scalar[;lam] each pp};
+
+/ Poisson random variates via Knuth's multiplicative algorithm. Slow for
+/ very large lambda but correct.
+.dist.rpois_scalar:{[lam]
+  L:exp neg lam;
+  k:0;
+  p:1f;
+  while[p>L;
+    k+:1;
+    p*:first 1?1f];
+  k-1
+ };
+.dist.rpois:{[nn;lam]
+  .dist.validate[nn>=0;"n must be non-negative"];
+  .dist.validate[(-7h=type nn)|(-6h=type nn);"n must be integer type"];
+  .dist.validate[lam>0f;"lambda must be positive"];
+  .dist.rpois_scalar[lam] each til nn
+ };
+
+/=============================================================================
+/ EXPONENTIAL DISTRIBUTION (rate parameterisation)
+/=============================================================================
+
+.dist.dexp:{[xx;rate]
+  .dist.validate[rate>0f;"rate must be positive"];
+  rate*exp neg rate*xx
+ };
+
+.dist.pexp:{[xx;rate]
+  .dist.validate[rate>0f;"rate must be positive"];
+  1f-exp neg rate*xx
+ };
+
+.dist.qexp:{[pp;rate]
+  .dist.validate[all (pp>=0f) and pp<1f;"p must be in [0, 1)"];
+  .dist.validate[rate>0f;"rate must be positive"];
+  (neg log 1f-pp)%rate
+ };
+
+.dist.rexp:{[nn;rate]
+  .dist.validate[nn>=0;"n must be non-negative"];
+  .dist.validate[(-7h=type nn)|(-6h=type nn);"n must be integer type"];
+  .dist.validate[rate>0f;"rate must be positive"];
+  .dist.qexp[nn?1f;rate]
+ };
