@@ -492,6 +492,125 @@ def gen_htest():
     print(f"  htest.json: {n_cases} test groups across {len(data)} functions")
 
 
+def gen_nonparam():
+    """Generate reference values for Wave 5 nonparametric tests."""
+    rng = np.random.default_rng(42)
+    data = {}
+
+    # Test samples
+    x_norm = rng.standard_normal(50).tolist()
+    y_norm = rng.standard_normal(50).tolist()
+    y_shift = (np.array(rng.standard_normal(50)) + 1.5).tolist()
+    x_small = [3.0, 5.0, 7.0, 9.0, 11.0]
+    y_small = [4.0, 6.0, 8.0, 10.0, 12.0]
+    x_ties = [1.0, 2.0, 2.0, 3.0, 3.0, 3.0, 4.0, 5.0]
+    y_ties = [2.0, 2.0, 3.0, 4.0, 4.0, 5.0, 6.0, 7.0]
+
+    # Paired samples for Wilcoxon
+    paired_x = rng.standard_normal(30).tolist()
+    paired_y = (np.array(paired_x) + 0.5 + rng.standard_normal(30) * 0.2).tolist()
+    paired_x_ties = [10.0, 12.0, 9.0, 11.0, 13.0, 14.0, 12.0, 11.0, 10.0, 12.0]
+    paired_y_ties = [9.5, 11.5, 9.0, 10.5, 12.5, 13.0, 11.5, 10.5, 9.5, 11.5]
+
+    # ----- KS test -----
+    # NOTE: scipy.ks_2samp(method='asymp') actually uses kstwo.sf (the FINITE-n
+    # Kolmogorov-Smirnov distribution), not the limiting Kolmogorov SF that the
+    # plan calls for. We reference scipy.special.kolmogorov (the limiting form,
+    # SF(y) = 2 sum (-1)^(k-1) exp(-2 k^2 y^2)) directly so the q impl can match.
+    def ks_ref(x, y):
+        nx, ny = len(x), len(y)
+        x_arr, y_arr = np.array(x), np.array(y)
+        # Match the q impl's D computation on the pooled support
+        pooled = np.unique(np.concatenate([x_arr, y_arr]))
+        fx = np.array([(x_arr <= t).mean() for t in pooled])
+        fy = np.array([(y_arr <= t).mean() for t in pooled])
+        d = float(np.max(np.abs(fx - fy)))
+        en = np.sqrt(nx * ny / (nx + ny))
+        pval = float(sp.kolmogorov(en * d))
+        return {"statistic": d, "p_value": max(0.0, min(1.0, pval))}
+
+    data["ks"] = [
+        {"x": x_norm, "y": y_norm, **ks_ref(x_norm, y_norm)},
+        {"x": x_norm, "y": y_shift, **ks_ref(x_norm, y_shift)},
+        {"x": x_small, "y": y_small, **ks_ref(x_small, y_small)},
+    ]
+
+    # ----- Mann-Whitney U -----
+    def mw_ref(x, y):
+        res = st.mannwhitneyu(x, y, alternative="two-sided",
+                              method="asymptotic", use_continuity=True)
+        return {"statistic": float(res.statistic), "p_value": float(res.pvalue)}
+
+    data["mannwhitney"] = [
+        {"x": x_norm, "y": y_norm, **mw_ref(x_norm, y_norm)},
+        {"x": x_norm, "y": y_shift, **mw_ref(x_norm, y_shift)},
+        {"x": x_small, "y": y_small, **mw_ref(x_small, y_small)},
+        {"x": x_ties, "y": y_ties, **mw_ref(x_ties, y_ties)},
+    ]
+
+    # ----- Wilcoxon signed-rank -----
+    def wcx_ref(x, y):
+        # scipy returns min(W+, W-) as statistic in two-sided mode; we will
+        # match by storing both W+ and the scipy statistic.
+        res = st.wilcoxon(x, y, alternative="two-sided", method="approx",
+                          correction=True, zero_method="wilcox")
+        d = np.array(x) - np.array(y)
+        d = d[d != 0]
+        ranks_abs = st.rankdata(np.abs(d))
+        w_plus = float(np.sum(ranks_abs[d > 0]))
+        return {"statistic": float(res.statistic), "w_plus": w_plus,
+                "p_value": float(res.pvalue)}
+
+    data["wilcoxon"] = [
+        {"x": paired_x, "y": paired_y, **wcx_ref(paired_x, paired_y)},
+        {"x": paired_x_ties, "y": paired_y_ties, **wcx_ref(paired_x_ties, paired_y_ties)},
+    ]
+
+    # ----- Shapiro-Wilk -----
+    def shapiro_ref(x):
+        res = st.shapiro(x)
+        return {"statistic": float(res.statistic), "p_value": float(res.pvalue)}
+
+    sw_norm15 = rng.standard_normal(15).tolist()
+    sw_norm30 = rng.standard_normal(30).tolist()
+    sw_norm100 = rng.standard_normal(100).tolist()
+    sw_unif50 = rng.uniform(-1, 1, 50).tolist()
+    sw_exp50 = rng.exponential(1.0, 50).tolist()
+
+    data["shapiro"] = [
+        {"x": sw_norm15, **shapiro_ref(sw_norm15)},
+        {"x": sw_norm30, **shapiro_ref(sw_norm30)},
+        {"x": sw_norm100, **shapiro_ref(sw_norm100)},
+        {"x": sw_unif50, **shapiro_ref(sw_unif50)},
+        {"x": sw_exp50, **shapiro_ref(sw_exp50)},
+    ]
+
+    # ----- Jarque-Bera -----
+    def jb_ref(x):
+        res = st.jarque_bera(x)
+        return {"statistic": float(res.statistic), "df": 2,
+                "p_value": float(res.pvalue)}
+
+    data["jarque_bera"] = [
+        {"x": rng.standard_normal(100).tolist(),
+         **jb_ref(rng.standard_normal(100).tolist())},
+        # NOTE: above generates fresh samples for each call; instead use the
+        # same sample for x and ref:
+    ]
+    jb_samples = [
+        rng.standard_normal(100).tolist(),
+        rng.exponential(1.0, 100).tolist(),
+        rng.standard_normal(500).tolist(),
+        list(range(20)),
+    ]
+    data["jarque_bera"] = [{"x": s, **jb_ref(s)} for s in jb_samples]
+
+    with open("nonparam.json", "w") as f:
+        json.dump(data, f, indent=2)
+    n_cases = sum(len(v) for v in data.values())
+    print(f"  nonparam.json: {n_cases} test groups across {len(data)} functions")
+
+
 if __name__ == "__main__":
     print("Generating qstats reference values...")
     gen_special()
@@ -499,4 +618,5 @@ if __name__ == "__main__":
     gen_linalg()
     gen_descriptive()
     gen_htest()
+    gen_nonparam()
     print("Done. All reference JSON files generated.")
