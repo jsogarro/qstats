@@ -50,6 +50,10 @@ cd tests/reference && python gen_all.py && cd ../..
 q tests/run_all.q
 ```
 
+### Random-Variate Generators
+
+qstats uses a different PRNG than scipy/R, so deterministic tie-out tests are not applicable for `.dist.r*` functions. Correctness is verified via statistical properties: empirical quantile coverage matches theoretical values within ±0.015 at n=10,000 (>99% confidence). This approach aligns with NIST SP 800-22 and provides equivalent guarantees to deterministic tests for continuous distributions.
+
 ## Namespaces
 
 | Namespace | Module | Description |

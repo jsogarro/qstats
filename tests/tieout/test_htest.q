@@ -32,9 +32,36 @@ ref:.j.k raze read0 `:tests/reference/htest.json;
 -1 "\nt-tests:";
 
 .tst.run_htest_cases["ttest1";ref`ttest1;{[c] .htest.ttest1[c`x;c`mu0]};1e-10;1b];
-.tst.run_htest_cases["ttest2";ref`ttest2;{[c] .htest.ttest2[c`x;c`y]};1e-10;1b];
-.tst.run_htest_cases["welch";ref`welch;{[c] .htest.welch[c`x;c`y]};1e-10;1b];
-.tst.run_htest_cases["ttest_paired";ref`ttest_paired;{[c] .htest.ttest_paired[c`x;c`y]};1e-10;1b];
+
+/ ttest2 CI
+{[c;i]
+  res:.htest.ttest2[c`x;c`y];
+  .tst.assert_approx["ttest2[",string[i],"] statistic";`float$res`statistic;`float$c`statistic;1e-10];
+  .tst.assert_approx["ttest2[",string[i],"] p_value";`float$res`p_value;`float$c`p_value;1e-10];
+  .tst.assert_approx["ttest2[",string[i],"] df";`float$res`df;`float$c`df;1e-10];
+  .tst.assert_approx["ttest2[",string[i],"] ci_lo";res[`ci][0];c`ci_lo;1e-9];
+  .tst.assert_approx["ttest2[",string[i],"] ci_hi";res[`ci][1];c`ci_hi;1e-9]
+ }'[ref`ttest2;til count ref`ttest2];
+
+/ welch CI
+{[c;i]
+  res:.htest.welch[c`x;c`y];
+  .tst.assert_approx["welch[",string[i],"] statistic";`float$res`statistic;`float$c`statistic;1e-10];
+  .tst.assert_approx["welch[",string[i],"] p_value";`float$res`p_value;`float$c`p_value;1e-10];
+  .tst.assert_approx["welch[",string[i],"] df";`float$res`df;`float$c`df;1e-10];
+  .tst.assert_approx["welch[",string[i],"] ci_lo";res[`ci][0];c`ci_lo;1e-9];
+  .tst.assert_approx["welch[",string[i],"] ci_hi";res[`ci][1];c`ci_hi;1e-9]
+ }'[ref`welch;til count ref`welch];
+
+/ ttest_paired CI
+{[c;i]
+  res:.htest.ttest_paired[c`x;c`y];
+  .tst.assert_approx["ttest_paired[",string[i],"] statistic";`float$res`statistic;`float$c`statistic;1e-10];
+  .tst.assert_approx["ttest_paired[",string[i],"] p_value";`float$res`p_value;`float$c`p_value;1e-10];
+  .tst.assert_approx["ttest_paired[",string[i],"] df";`float$res`df;`float$c`df;1e-10];
+  .tst.assert_approx["ttest_paired[",string[i],"] ci_lo";res[`ci][0];c`ci_lo;1e-9];
+  .tst.assert_approx["ttest_paired[",string[i],"] ci_hi";res[`ci][1];c`ci_hi;1e-9]
+ }'[ref`ttest_paired;til count ref`ttest_paired];
 
 /=============================================================================
 / 2. F-Test
@@ -47,7 +74,9 @@ ftest_cases:ref`ftest;
   .tst.assert_approx["ftest[",string[i],"] statistic";`float$res`statistic;`float$c`statistic;1e-10];
   .tst.assert_approx["ftest[",string[i],"] p_value";`float$res`p_value;`float$c`p_value;1e-10];
   / df is a (df1; df2) pair; cast both sides to float so 49 (long) and 49f match.
-  .tst.assert_equal["ftest[",string[i],"] df";`float$res`df;`float$(c`df1;c`df2)]
+  .tst.assert_equal["ftest[",string[i],"] df";`float$res`df;`float$(c`df1;c`df2)];
+  .tst.assert_approx["ftest[",string[i],"] ci_lo";res[`ci][0];c`ci_lo;1e-9];
+  .tst.assert_approx["ftest[",string[i],"] ci_hi";res[`ci][1];c`ci_hi;1e-9]
  }'[ftest_cases;til count ftest_cases];
 
 /=============================================================================
@@ -83,7 +112,15 @@ anova_cases:ref`anova1;
 /=============================================================================
 -1 "\nCorrelation test:";
 
-.tst.run_htest_cases["cortest";ref`cortest;{[c] .htest.cortest[c`x;c`y]};1e-10;1b];
+/ cortest CI
+{[c;i]
+  res:.htest.cortest[c`x;c`y];
+  .tst.assert_approx["cortest[",string[i],"] statistic";`float$res`statistic;`float$c`statistic;1e-10];
+  .tst.assert_approx["cortest[",string[i],"] p_value";`float$res`p_value;`float$c`p_value;1e-10];
+  .tst.assert_approx["cortest[",string[i],"] df";`float$res`df;`float$c`df;1e-10];
+  .tst.assert_approx["cortest[",string[i],"] ci_lo";res[`ci][0];c`ci_lo;1e-9];
+  .tst.assert_approx["cortest[",string[i],"] ci_hi";res[`ci][1];c`ci_hi;1e-9]
+ }'[ref`cortest;til count ref`cortest];
 
 /=============================================================================
 / 6. Proportion test
@@ -92,4 +129,11 @@ anova_cases:ref`anova1;
 
 / proptest p-values use pnorm, which has a 5e-7 precision floor per the
 / documented Numerical Accuracy section. Loosen the tolerance accordingly.
-.tst.run_htest_cases["proptest";ref`proptest;{[c] .htest.proptest[c`x;c`n;c`p0]};1e-6;0b];
+/ proptest CI
+{[c;i]
+  res:.htest.proptest[c`x;c`n;c`p0];
+  .tst.assert_approx["proptest[",string[i],"] statistic";`float$res`statistic;`float$c`statistic;1e-6];
+  .tst.assert_approx["proptest[",string[i],"] p_value";`float$res`p_value;`float$c`p_value;1e-6];
+  .tst.assert_approx["proptest[",string[i],"] ci_lo";res[`ci][0];c`ci_lo;1e-9];
+  .tst.assert_approx["proptest[",string[i],"] ci_hi";res[`ci][1];c`ci_hi;1e-9]
+ }'[ref`proptest;til count ref`proptest];
